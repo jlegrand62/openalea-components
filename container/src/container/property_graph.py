@@ -540,7 +540,10 @@ class PropertyGraph(IPropertyGraph, Graph):
         - `edge_list` : the set of the edges of the vertex vid
         """
         if vid==None:
-            return set(self._edges.keys())       
+            if edge_type is not None:
+                return set([eid for eid in self._edges.keys() if self.edge_property('edge_type')[eid] == edge_type])
+            else:
+                return set([eid for eid in self._edges.keys()])
         return self.out_edges(vid, edge_type) | self.in_edges(vid, edge_type)
 
     def iter_edges(self, vid, edge_type=None):
@@ -676,120 +679,115 @@ class PropertyGraph(IPropertyGraph, Graph):
                                                adjacency_matrix[i, k] + adjacency_matrix[k, j])
         return adjacency_matrix
 
-    def _add_vertex_to_region(self, vids, region_name):
-        """ Add a set of vertices to a region.
+    def _add_vertex_to_domain(self, vids, domain_name):
+        """ Add a set of vertices to a domain.
         Save it in two places: 
-             - self.graph_property[region_name] will return the list of all vertices belonging to 'region_name';
-             - self.vertex_property["regions"][vid] will return the list of all regions `vid` belong to.
+             - self.graph_property[domain_name] will return the list of all vertices belonging to 'domain_name';
+             - self.vertex_property["domains"][vid] will return the list of all domains `vid` belong to.
         """
-        if not "regions" in self._vertex_property:
-            self._vertex_property["regions"] = {}
+        if not "domains" in self._vertex_property:
+            self._vertex_property["domains"] = {}
         
         for vid in vids:
-            # Adding region_name to the "region" property of each `vid`:
-            if self._vertex_property["regions"].has_key(vid):
-                self._vertex_property["regions"][vid].append(region_name)
+            # Adding domain_name to the "domain" property of each `vid`:
+            if self._vertex_property["domains"].has_key(vid):
+                self._vertex_property["domains"][vid].append(domain_name)
             else:
-                self._vertex_property["regions"][vid]=[region_name]
-            # Adding `vid` to the `region_name` (graph_property) it belong to:
-            self._graph_property[region_name].append(vid)
+                self._vertex_property["domains"][vid]=[domain_name]
+            # Adding `vid` to the `domain_name` (graph_property) it belong to:
+            self._graph_property[domain_name].append(vid)
 
-    def _remove_vertex_from_region(self, vids, region_name):
-        """Remove a set of vertices `vids` from a region `region_name`."""
+    def _remove_vertex_from_domain(self, vids, domain_name):
+        """Remove a set of vertices `vids` from a domain `domain_name`."""
         for vid in vids:
-            self._vertex_property["regions"][vid].remove(region_name)
-            if self._vertex_property["regions"][vid]==[]:
-                self._vertex_property["regions"].pop(vid)
+            self._vertex_property["domains"][vid].remove(domain_name)
+            if self._vertex_property["domains"][vid]==[]:
+                self._vertex_property["domains"].pop(vid)
                 
-            self._graph_property[region_name].remove(vid)
+            self._graph_property[domain_name].remove(vid)
 
-    def add_vertex_to_region(self, vids, region_name):
-        """ Add a set of vertices `vids` to a region `region_name`.
+    def add_vertex_to_domain(self, vids, domain_name):
+        """ Add a set of vertices `vids` to a domain `domain_name`.
         Save it in two places: 
-             - self.graph_property[region_name] will return the list of all vertices belonging to 'region_name';
-             - self.vertex_property["regions"][vid] will return the list of all regions `vid` belong to.
+             - self.graph_property[domain_name] will return the list of all vertices belonging to 'domain_name';
+             - self.vertex_property["domains"][vid] will return the list of all domains `vid` belong to.
         """
-        if not region_name in self._graph_property:
-            #~ raise PropertyError("property %s is not defined on graph" % region_name)
-            print "Property %s is not defined for vertices on the graph, adding it..." % region_name
-            self._graph_property[region_name] = vids
+        if not domain_name in self._graph_property:
+            #~ raise PropertyError("property %s is not defined on graph" % domain_name)
+            print "Property {} is not defined for vertices on the graph, adding it...".format(domain_name)
+            self._graph_property[domain_name] = vids
         
-        self._add_vertex_to_region(self.__to_set(vids), region_name)
+        self._add_vertex_to_domain(self.__to_set(vids), domain_name)
 
-    def remove_vertex_from_region(self, vids, region_name):
-        """Remove a set of vertices `vids` from a region `region_name`."""
-        if not region_name in self._graph_property:
-            raise PropertyError("property %s is not defined on graph"
-                                % region_name)
-        self._remove_vertex_from_region(self.__to_set(vids), region_name)
+    def remove_vertex_from_domain(self, vids, domain_name):
+        """Remove a set of vertices `vids` from a domain `domain_name`."""
+        if not domain_name in self._graph_property:
+            raise PropertyError("property {} is not defined on graph".format(domain_name))
+        self._remove_vertex_from_domain(self.__to_set(vids), domain_name)
 
-    def add_region_from_func(self, func, region_name):
-        """ Create a region `region_name` of vertices according to a function `func`.
+    def add_domain_from_func(self, func, domain_name):
+        """ Create a domain `domain_name` of vertices according to a function `func`.
         
         :Parameters:
-        - `func` : the function to make the region (might return True or False)
-        - `region_name` : the name of the region
+        - `func` : the function to make the domain (might return True or False)
+        - `domain_name` : the name of the domain
         """
-        if region_name in self._graph_property:
-            raise PropertyError("property %s is already defined on graph"
-                                % region_name)
-        self._graph_property[region_name]=[]
-        if not "regions" in self._vertex_property.keys():
-            self.add_vertex_property("regions")
+        if domain_name in self._graph_property:
+            raise PropertyError("property {} is already defined on graph".format(domain_name))
+        self._graph_property[domain_name]=[]
+        if not "domains" in self._vertex_property.keys():
+            self.add_vertex_property("domains")
         for vid in self._vertices.keys():
             if func(self, vid):
-                self._add_vertex_to_region(set([vid]), region_name)
+                self._add_vertex_to_domain(set([vid]), domain_name)
 
-    def add_regions_from_dict(self, dict_regions, region_names):
-        """ If one already posses a dict indicating for a list of vertex which region they belong to, it can be given to the graph directly.
+    def add_domains_from_dict(self, dict_domains, domain_names):
+        """ If one already posses a dict indicating for a list of vertex which domain they belong to, it can be given to the graph directly.
         
         :Parameters:
-        - `dict_regions` (dict) - *keys = ids (SpatialImage); *values = intergers indicating the region(s)
-        - `region_name` (list) - a list containing the name of the region(s)
+        - `dict_domains` (dict) - *keys = ids (SpatialImage); *values = intergers indicating the domain(s)
+        - `domain_name` (list) - a list containing the name of the domain(s)
         """
-        list_regions = np.unique(dict_regions.values())
-        if len(region_names) != len(list_regions):
-            warnings.warn("You didn't provided the same number of regions and region names.")
+        list_domains = np.unique(dict_domains.values())
+        if len(domain_names) != len(list_domains):
+            warnings.warn("You didn't provided the same number of domains and domain names.")
             pass
         
-        if not "regions" in self._vertex_property.keys():
-            self.add_vertex_property("regions")
+        if not "domains" in self._vertex_property.keys():
+            self.add_vertex_property("domains")
         
-        for region, region_name in enumerate(region_names):
-            if region_name in self._graph_property:
-                raise PropertyError("property %s is already defined on graph"
-                                    % region_name)
-            self._graph_property[region_name]=[]
-            for vid in dict_regions:
-                if dict_regions[vid] == list_regions[region]:
-                    self._add_vertex_to_region(set([vid]), region_name)
+        for domain, domain_name in enumerate(domain_names):
+            if domain_name in self._graph_property:
+                raise PropertyError("property {} is already defined on graph".format(domain_name))
+            self._graph_property[domain_name]=[]
+            for vid in dict_domains:
+                if dict_domains[vid] == list_domains[domain]:
+                    self._add_vertex_to_domain(set([vid]), domain_name)
 
-    def iter_region(self, region_name):
-        if not region_name in self._graph_property:
+    def iter_domain(self, domain_name):
+        if not domain_name in self._graph_property:
+            raise PropertyError("property {} is not defined on graph".format(domain_name))
+        return iter(self._graph_property[domain_name])
+
+    def remove_domain(self, domain_name):
+        """Remove a domain `domain_name`."""
+        if not domain_name in self._graph_property:
+            raise PropertyError("property {} is not defined on graph".format(domain_name))
+
+        for vid in self.iter_domain(domain_name):
+            self._vertex_property["domains"][vid].remove(domain_name)
+            if self._vertex_property["domains"][vid]==[]:
+                self._vertex_property["domains"].pop(vid)
+
+        return self._graph_property.pop(domain_name)
+
+    def is_connected_domain(self, domain_name, edge_type=None):
+        """Return True if a domain is connected."""
+        if not domain_name in self._graph_property:
             raise PropertyError("property %s is not defined on graph"
-                                % region_name)
-        return iter(self._graph_property[region_name])
-
-    def remove_region(self, region_name):
-        """Remove a region `region_name`."""
-        if not region_name in self._graph_property:
-            raise PropertyError("property %s is not defined on graph"
-                                % region_name)
-
-        for vid in self.iter_region(region_name):
-            self._vertex_property["regions"][vid].remove(region_name)
-            if self._vertex_property["regions"][vid]==[]:
-                self._vertex_property["regions"].pop(vid)
-
-        return self._graph_property.pop(region_name)
-
-    def is_connected_region(self, region_name, edge_type=None):
-        """Return True if a region is connected."""
-        if not region_name in self._graph_property:
-            raise PropertyError("property %s is not defined on graph"
-                                % region_name)
-        region_sub_graph=Graph.sub_graph(self, self._graph_property[region_name])
-        distances=region_sub_graph.topological_distance(region_sub_graph._vertices.keys()[0], edge_type=edge_type)
+                                % domain_name)
+        domain_sub_graph=Graph.sub_graph(self, self._graph_property[domain_name])
+        distances=domain_sub_graph.topological_distance(domain_sub_graph._vertices.keys()[0], edge_type=edge_type)
         return not float('inf') in distances.values()
 
 

@@ -53,7 +53,7 @@ class TemporalPropertyGraph(PropertyGraph):
         Each graph contains structural edges. 
         Mapping define dynamic edges between two graphs.
 
-        :Parameters:
+        Args:
             - graphs - a list of PropertyGraph
             - mappings - a list defining the dynamic or temporal edges between two graphs.
             - time_steps - time corresponding to each graph
@@ -164,6 +164,8 @@ class TemporalPropertyGraph(PropertyGraph):
                     yield el
 
         if mapping:
+            if disable_lineage_checking:
+                print "Lineage checking is disabled!"
             unused_lineage, no_ancestor, no_all_desc = {}, {}, {}
             on_ids_source, on_ids_target = self._old_to_new_ids[-2:] #get the last two image2graph dict (label2vertex @ t_n-1 & t_n)
             for k, l in mapping.iteritems():
@@ -173,7 +175,7 @@ class TemporalPropertyGraph(PropertyGraph):
                         try:
                             eid = self.add_edge(on_ids_source[0][k], on_ids_target[0][v])
                             edge_types[eid] = self.TEMPORAL
-                        except:
+                        except KeyError:
                             unused_lineage.update({k:v})
                 # Check if the mother cell and ALL daugthers are present in their respective topological graph : WE DON'T WANT TO CREATE A PARTIAL LINEAGE !!!!
                 elif on_ids_source[0].has_key(k) and ( sum([v in on_ids_target[0].keys() for v in l_flat]) == len(l_flat) ):
@@ -187,13 +189,15 @@ class TemporalPropertyGraph(PropertyGraph):
                     no_ancestor.update({k:l})
                 if not ( sum([v in on_ids_target[0].keys() for v in l_flat]) == len(l_flat) ):
                     no_all_desc.update({k:l})
-            if unused_lineage != {}:
+            if unused_lineage != {} and not disable_lineage_checking:
                 print "Detected partial lineage info from t{} to t{} !!".format(current_index-1,current_index)
                 print "   - {} lineage infos could not be used...".format(len(unused_lineage))
-                print "   - this represent {} ({}/{}) of the initially provided mapping...".format(round(float(len(unused_lineage))/len(mapping),3)*100,len(unused_lineage),len(mapping))
+                print "   - this represent {}% ({}/{}) of the initially provided mapping...".format(round(float(len(unused_lineage))/len(mapping),3)*100,len(unused_lineage),len(mapping))
                 #~ print "It is most likely that you are trying to add lineage between non-existant vertex in your spatial graphs!"
                 #~ print "Check if you are not using an out-dated graph and erase temporary files (TPG creation...)."
                 #~ print "Or maybe the lignage is detected as 'incomplete' because some cells have been removed before topological-graph computation."
+            elif unused_lineage != {}:
+                print "Some lineages were not used, most likely because the cells they were related to have been deleted before topological-graph computation."
             if no_ancestor != {}:
                 print "   - {} have missing ancestors in their topological graph (at time {}).".format(len(no_ancestor), current_index-1)
             if no_all_desc != {}:
@@ -223,22 +227,22 @@ class TemporalPropertyGraph(PropertyGraph):
     def children(self, vid):
         """ Return children of the vertex vid
 
-        :Parameters:
-        - `vid` : a vertex id
+        Args:
+          vid: : a vertex id
 
-        :Returns:
-        - `children_list` : the set of the children of the vertex vid
+        Returns:
+          children_list: : the set of the children of the vertex vid
         """
         return self.out_neighbors(vid, 't')
 
     def iter_children(self, vid):
         """ Return children of the vertex vid
 
-        :Parameters:
-        - `vid` : a vertex id
+        Args:
+          vid: : a vertex id
 
-        :Returns:
-        - `iterator` : an iterator on the set of the children of the vertex vid
+        Returns:
+          iterator: : an iterator on the set of the children of the vertex vid
         """
         return iter(self.children(vid))
 
@@ -254,22 +258,22 @@ class TemporalPropertyGraph(PropertyGraph):
     def parent(self, vid):
         """ Return parents of the vertex vid
 
-        :Parameters:
-        - `vid` : a vertex id
+        Args:
+          vid: : a vertex id
 
-        :Returns:
-        - `parents_list` : the set of the parents of the vertex vid
+        Returns:
+          parents_list: : the set of the parents of the vertex vid
         """
         return self.in_neighbors(vid, 't')
 
     def iter_parent(self, vid):
         """ Return parents of the vertex vid
 
-        :Parameters:
-        - `vid` : a vertex id
+        Args:
+          vid: : a vertex id
 
-        :Returns:
-        - `iterator` : the set of the children of the vertex vid
+        Returns:
+          iterator: : the set of the children of the vertex vid
         """
         return iter(self.parent(vid))
 
@@ -285,11 +289,11 @@ class TemporalPropertyGraph(PropertyGraph):
     def sibling(self, vid):
         """ Return sibling of the vertex vid
 
-        :Parameters:
-        - `vid` : a vertex id
+        Args:
+          vid: : a vertex id
 
-        :Returns:
-        - `sibling_list` : the set of sibling of the vertex vid
+        Returns:
+          sibling_list: : the set of sibling of the vertex vid
         """
         if self.parent(vid):
             return self.children(self.parent(vid).pop())-set([vid])
@@ -299,22 +303,22 @@ class TemporalPropertyGraph(PropertyGraph):
     def iter_sibling(self, vid):
         """ Return of the vertex vid
 
-        :Parameters:
-        - `vid` : a vertex id
+        Args:
+          vid: : a vertex id
 
-        :Returns:
-        - `iterator` : an iterator on the set of sibling of the vertex vid
+        Returns:
+          iterator: : an iterator on the set of sibling of the vertex vid
         """
         return iter(self.sibling(vid))
 
     def descendants(self, vids, n = None):
         """ Return the 0, 1, ..., nth descendants of the vertex vid
 
-        :Parameters:
-        - `vids` : a set of vertex id
+        Args:
+          vids: : a set of vertex id
 
-        :Returns:
-        - `descendant_list` : the set of the 0, 1, ..., nth descendant of the vertex vid
+        Returns:
+          descendant_list: : the set of the 0, 1, ..., nth descendant of the vertex vid
         """
         edge_type='t'
         neighbs=set()
@@ -337,20 +341,20 @@ class TemporalPropertyGraph(PropertyGraph):
     def iter_descendants(self, vids, n = None):
         """ Return the 0, 1, ..., nth descendants of the vertex vid
 
-        :Parameters:
-        - `vids` : a set of vertex id
+        Args:
+          vids: : a set of vertex id
 
-        :Returns:
-        - `iterator` : an iterator on the set of the 0, 1, ..., nth descendants of the vertex vid
+        Returns:
+          iterator: : an iterator on the set of the 0, 1, ..., nth descendants of the vertex vid
         """
         return iter(self.descendants(vids, n))
 
     def rank_descendants(self, vid, rank=1):
         """ Return the descendants of the vertex vid only at a given rank
-        :Parameters:
-        - `vid` : a vertex id or a set of vertex id
-        :Returns:
-        - `descendant_list` : the set of the rank-descendant of the vertex vid or a list of set
+        Args:
+          vid: : a vertex id or a set of vertex id
+        Returns:
+          descendant_list: : the set of the rank-descendant of the vertex vid or a list of set
         """
         if isinstance(vid,list):
             return [self.rank_descendants(v,rank) for v in vid]
@@ -365,10 +369,10 @@ class TemporalPropertyGraph(PropertyGraph):
 
     def rank_descendants(self, vid, rank=1):
         """ Return the descendants of the vertex vid only at a given rank
-        :Parameters:
-        - `vid` : a vertex id or a set of vertex id
-        :Returns:
-        - `descendant_list` : the set of the rank-descendant of the vertex vid or a list of set
+        Args:
+          vid: : a vertex id or a set of vertex id
+        Returns:
+          descendant_list: : the set of the rank-descendant of the vertex vid or a list of set
         """
         if isinstance(vid,list):
             return [self.rank_descendants(v,rank) for v in vid]
@@ -384,11 +388,11 @@ class TemporalPropertyGraph(PropertyGraph):
     def ancestors(self, vids, n = None):
         """Return the 0, 1, ..., nth ancestors of the vertex vid
 
-        :Parameters:
-        - `vids` : a set of vertex id
+        Args:
+          vids: : a set of vertex id
 
-        :Returns:
-        - `anestors_list` : the set of the 0, 1, ..., nth ancestors of the vertex vid
+        Returns:
+          anestors_list: : the set of the 0, 1, ..., nth ancestors of the vertex vid
         """
         edge_type='t'
         neighbs=set()
@@ -411,20 +415,20 @@ class TemporalPropertyGraph(PropertyGraph):
     def iter_ancestors(self, vids, n):
         """ Return the 0, 1, ..., nth ancestors of the vertex vid
 
-        :Parameters:
-        - `vids` : a set of vertex id
+        Args:
+          vids: : a set of vertex id
 
-        :Returns:
-        - `iterator` : an iterator on the set of the 0, 1, ..., nth ancestors of the vertex vid
+        Returns:
+          iterator: : an iterator on the set of the 0, 1, ..., nth ancestors of the vertex vid
         """
         return iter(self.ancestors(vids, n))
 
     def rank_ancestors(self, vid, rank=1):
         """ Return the ancestor of the vertex vid only at a given rank
-        :Parameters:
-        - `vid` : a vertex id or a set of vertex id
-        :Returns:
-        - `descendant_list` : the set of the rank-ancestor of the vertex vid or a list of set
+        Args:
+          vid: : a vertex id or a set of vertex id
+        Returns:
+          descendant_list: : the set of the rank-ancestor of the vertex vid or a list of set
         """
         if isinstance(vid,list):
             return [self.rank_ancestors(v,rank) for v in vid]
@@ -473,9 +477,9 @@ class TemporalPropertyGraph(PropertyGraph):
          - an 'descendants' based lineage (as_ancestor = True), i.e. only vids lineaged as descendants (over lineage_rank if not None).
 
         :Parameter:
-         - `fully_lineaged` (bool) : if True (and lineage_rank is None), return vertices lineaged from the first to the last time-point (or from vid_time_point to vid_time_point + lineage_rank), otherwise return vertices having at least a parent or a child(ren);
-         - `as_parent` (bool) : if True, return vertices lineaged as parents;
-         - `as_children` (bool) : if True, return vertices lineaged as children;
+           fully_lineaged: (bool) : if True (and lineage_rank is None), return vertices lineaged from the first to the last time-point (or from vid_time_point to vid_time_point + lineage_rank), otherwise return vertices having at least a parent or a child(ren);
+           as_parent: (bool) : if True, return vertices lineaged as parents;
+           as_children: (bool) : if True, return vertices lineaged as children;
          - 'lineage_rank' (int): usefull if you want to check the lineage for a different rank than the rank-1 temporal neighborhood.
         """
         from vplants.tissue_analysis.temporal_graph_analysis import exist_all_relative_at_rank
@@ -504,13 +508,13 @@ class TemporalPropertyGraph(PropertyGraph):
         Return vertices ids corresponding to a given time point in the TPG.
         Optional parameters can be used to filter the list of vertices ids returned.
 
-        :Parameters:
-         - `time_point` (int) : integer giving which time point should be considered;
-         - `lineaged` (bool) : if True, return vertices having at least a parent or a child(ren);
+        Args:
+           time_point: (int) : integer giving which time point should be considered;
+           lineaged: (bool) : if True, return vertices having at least a parent or a child(ren);
          - 'lineage_rank' (int): usefull if you want to check the lineage for a different rank than the rank-1 temporal neighborhood;
-         - `fully_lineaged` (bool) : if True, return vertices linked from the beginning to the end of the graph;
-         - `as_parent` (bool) : if True, return vertices lineaged as parents;
-         - `as_children` (bool) : if True, return vertices lineaged as children.
+           fully_lineaged: (bool) : if True, return vertices linked from the beginning to the end of the graph;
+           as_parent: (bool) : if True, return vertices lineaged as parents;
+           as_children: (bool) : if True, return vertices lineaged as children.
         """
         if lineaged or fully_lineaged:
             vids = self.lineaged_vertex(fully_lineaged, as_ancestor, as_descendant, lineage_rank)
@@ -524,14 +528,14 @@ class TemporalPropertyGraph(PropertyGraph):
         Return the `vertex_property``for a given `time_point`.
         May be conditionned by extra temporal property: `lineaged`, `fully_lineaged`, `as_parent`, `as_children`.
 
-        :Parameters:
-         - `vertex_property` (str): a string refering to an existing 'graph.vertex_property' to extract;
-         - `time_point` (int) : integer giving which time point should be considered;
-         - `lineaged` (bool) : if True, return vertices having at least a parent or a child(ren);
+        Args:
+           vertex_property: (str): a string refering to an existing 'graph.vertex_property' to extract;
+           time_point: (int) : integer giving which time point should be considered;
+           lineaged: (bool) : if True, return vertices having at least a parent or a child(ren);
          - 'lineage_rank' (int): usefull if you want to check the lineage for a different rank than the rank-1 temporal neighborhood;
-         - `fully_lineaged` (bool) : if True, return vertices linked from the beginning to the end of the graph;
-         - `as_parent` (bool) : if True, return vertices lineaged as parents;
-         - `as_children` (bool) : if True, return vertices lineaged as children.
+           fully_lineaged: (bool) : if True, return vertices linked from the beginning to the end of the graph;
+           as_parent: (bool) : if True, return vertices lineaged as parents;
+           as_children: (bool) : if True, return vertices lineaged as children.
         """
         vids = self.vertex_at_time(time_point, lineaged, fully_lineaged, as_ancestor, as_descendant)
         return dict([(k,self.vertex_property(vertex_property)[k]) for k in vids if self.vertex_property(vertex_property).has_key(k)])
@@ -543,15 +547,15 @@ class TemporalPropertyGraph(PropertyGraph):
         Since "images labels" can be similar (not unique), it is mandatory to give a `time_point`.
         Additional parameters can be given and are related to the 'self.vertex_property_at_time' parameters.
 
-        :Parameters:
-         - `vertex_property` (str): a string refering to an existing 'graph.vertex_property' to extract;
-         - `time_point` (int): time-point for which to return the `vertex_property`;
-         - `lineaged` (bool) : if True, return vertices having at least a parent or a child(ren);
+        Args:
+           vertex_property: (str): a string refering to an existing 'graph.vertex_property' to extract;
+           time_point` (int): time-point for which to return the `vertex_property:;
+           lineaged: (bool) : if True, return vertices having at least a parent or a child(ren);
          - 'lineage_rank' (int): usefull if you want to check the lineage for a different rank than the rank-1 temporal neighborhood;
-         - `fully_lineaged` (bool) : if True, return vertices linked from the beginning to the end of the graph;
-         - `as_parent` (bool) : if True, return vertices lineaged as parents;
-         - `as_children` (bool) : if True, return vertices lineaged as children.
-        :Returns:
+           fully_lineaged: (bool) : if True, return vertices linked from the beginning to the end of the graph;
+           as_parent: (bool) : if True, return vertices lineaged as parents;
+           as_children: (bool) : if True, return vertices lineaged as children.
+        Returns:
          - *key_ vertex/cell label, *values_ `vertex_property`
 
         :Examples:
@@ -566,9 +570,9 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         Return a subpart of graph.edge_property(`edge_property`) with relabelled key-pair into "images labelpairs" thanks to the dictionary graph.vertex_property('old_labels').
 
-        :Parameters:
-         - `vertex_property` (str): a string refering to an existing 'graph.edge_property' to extract;
-         - `time_point` (int): time-point for which to return the `edge_property`;
+        Args:
+           vertex_property: (str): a string refering to an existing 'graph.edge_property' to extract;
+           time_point` (int): time-point for which to return the `edge_property:;
 
         :Examples:
          graph.edge_property_with_image_labelpairs('wall_area', 0)
@@ -588,9 +592,9 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         Return a subpart of graph.edge_property(`edge_property`) with relabelled key-pair into "images labelpairs" thanks to the dictionary graph.vertex_property('old_labels').
 
-        :Parameters:
-         - `vertex_property` (str): a string refering to an existing 'graph.edge_property' to extract;
-         - `time_point` (int): time-point for which to return the `edge_property`;
+        Args:
+           vertex_property: (str): a string refering to an existing 'graph.edge_property' to extract;
+           time_point` (int): time-point for which to return the `edge_property:;
 
         :Examples:
          graph.edge_property_with_image_labelpairs('wall_area', 0)
@@ -600,16 +604,16 @@ class TemporalPropertyGraph(PropertyGraph):
         return dict([(tuple(sorted([label1,label2])),self.edge_property(edge_property)[eid]) for eid,(label1,label2) in eid2labelpair.iteritems() if self.edge_property(edge_property).has_key(eid)])
 
 
-    def region_vids(self, region_name):
+    def domain_vids(self, domain_name):
         """
-        Return a list of vids (TPG vertex id type) that belong to the region `region_name` according to graph.
-        :Parameters:
-         - `region_name` (str) : the name of a region (e.g. from `self.add_vertex_to_region()`)
+        Return a list of vids (TPG vertex id type) that belong to the domain `domain_name` according to graph.
+        Args:
+           domain_name` (str) : the name of a domain (e.g. from `self.add_vertex_to_domain():)
         """
-        if 'regions' in list(self.vertex_properties()):
-            return sorted(list(set([k for k,v in self.vertex_property('regions').iteritems() for r in v if r==region_name])))
+        if 'domains' in list(self.vertex_properties()):
+            return sorted(list(set([k for k,v in self.vertex_property('domains').iteritems() for r in v if r==domain_name])))
         else:
-            print "No property 'regions' added to the graph yet!"
+            print "No property 'domains' added to the graph yet!"
             return None
 
 
