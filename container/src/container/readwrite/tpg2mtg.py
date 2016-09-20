@@ -18,10 +18,10 @@
 
 def tpg2mtg(graph, properties=['index'], root_ids=None, mtg = None, binary_sorter = None):
     """
-    :Parameters:
-     - `graph`(TPG) - a tempora property graph,
-     - `properties`(list) - list of properties to export in MTG
-     - `root_ids`(list) - list of root ids (@t0) to build the MTG
+    Args:
+       graph:(TPG) - a tempora property graph,
+       properties:(list) - list of properties to export in MTG
+       root_ids:(list) - list of root ids (@t0) to build the MTG
     """
     if root_ids is None:
         root_ids = [i for i in graph.vertices() if len(graph.parents(i)) == 0 and len(graph.children(i)) > 0]
@@ -129,12 +129,12 @@ def volume_sorter(graph, chtcids):
      vol_A = 100 and vol_B = vol_C = 50, then the most probable lineage is:
      ABC -> A & BC -> A & B & C , in recursive list writting: [A,[B,C]]
 
-    :Parameters:
-     - `graph` (TPG) - a tempora property graph,
-     - `chtcids` (list) - a list of sibling ids, ex. [A,B,C]
+    Args:
+       graph: (TPG) - a tempora property graph,
+       chtcids: (list) - a list of sibling ids, ex. [A,B,C]
 
-    :Returns:
-     - `siblings` (list) - a recursive list indicating the deducted binary lineage, ex. [A,[B,C]]
+    Returns:
+       siblings: (list) - a recursive list indicating the deducted binary lineage, ex. [A,[B,C]]
     """
     assert len(chtcids) == 3
     volumes = dict([(vid, graph.vertex_property('volume')[vid]) for vid in chtcids])
@@ -173,12 +173,12 @@ def epidermis_surface_sorter(graph, chtcids):
      vol_A = 100 and vol_B = vol_C = 50, then the most probable lineage is:
      ABC -> A & BC -> A & B & C , in recursive list writting: [A,[B,C]]
 
-    :Parameters:
-     - `graph` (TPG) - a tempora property graph,
-     - `chtcids` (list) - a list of sibling ids, ex. [A,B,C]
+    Args:
+       graph: (TPG) - a tempora property graph,
+       chtcids: (list) - a list of sibling ids, ex. [A,B,C]
 
-    :Returns:
-     - `siblings` (list) - a recursive list indicating the deducted binary lineage, ex. [A,[B,C]]
+    Returns:
+       siblings: (list) - a recursive list indicating the deducted binary lineage, ex. [A,[B,C]]
     """
     assert len(chtcids) == 3
     assert sum([graph.vertex_property('L1').has_key(cid) for cid in chtcids])==3
