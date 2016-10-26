@@ -22,6 +22,8 @@ __revision__ = " $Id$ "
 import warnings, numpy as np
 from property_graph import *
 
+from vplants.tissue_analysis.temporal_graph_analysis import translate_keys_Graph2Image, exist_all_relative_at_rank
+
 class TemporalPropertyGraph(PropertyGraph):
     """
     Simple implementation of PropertyGraph using
@@ -460,7 +462,6 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         Return a list of fully lineaged vertex (from a given `time_point` if not None), i.e. lineaged from start to end.
         """
-        from vplants.tissue_analysis.temporal_graph_analysis import exist_all_relative_at_rank
         rank = self.nb_time_points-1
         flv = self.descendants([k for k in self.vertex_at_time(0) if exist_all_relative_at_rank(self, k, rank)], rank)
         if time_point is None:
@@ -482,7 +483,6 @@ class TemporalPropertyGraph(PropertyGraph):
            as_children: (bool) : if True, return vertices lineaged as children;
          - 'lineage_rank' (int): usefull if you want to check the lineage for a different rank than the rank-1 temporal neighborhood.
         """
-        from vplants.tissue_analysis.temporal_graph_analysis import exist_all_relative_at_rank
         if as_ancestor:
             vids_anc = self._lineaged_as_ancestor(time_point=None, rank=lineage_rank)
         else:
@@ -522,7 +522,6 @@ class TemporalPropertyGraph(PropertyGraph):
         else:
             return self._all_vertex_at_time(time_point)
 
-
     def vertex_property_at_time(self, vertex_property, time_point, lineaged=False, fully_lineaged=False, as_ancestor=False, as_descendant=False, lineage_rank=1):
         """
         Return the `vertex_property``for a given `time_point`.
@@ -539,7 +538,6 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         vids = self.vertex_at_time(time_point, lineaged, fully_lineaged, as_ancestor, as_descendant)
         return dict([(k,self.vertex_property(vertex_property)[k]) for k in vids if self.vertex_property(vertex_property).has_key(k)])
-
 
     def vertex_property_with_image_labels(self, vertex_property, time_point, lineaged=False, fully_lineaged=False, as_ancestor=False, as_descendant=False, lineage_rank=1):
         """
@@ -562,47 +560,57 @@ class TemporalPropertyGraph(PropertyGraph):
          graph.vertex_property_with_image_labels('volume', 0)
 
         """
-        from vplants.tissue_analysis.temporal_graph_analysis import translate_keys_Graph2Image
-        return translate_keys_Graph2Image(self, self.vertex_property_at_time(vertex_property, time_point, lineaged, fully_lineaged, as_ancestor, as_descendant))
-
+        return translate_keys_Graph2Image(self, self.vertex_property_at_time(vertex_property, time_point, lineaged, fully_lineaged, as_ancestor, as_descendant), time_point)
 
     def edge_property_at_time(self, edge_property, time_point):
         """
-        Return a subpart of graph.edge_property(`edge_property`) with relabelled key-pair into "images labelpairs" thanks to the dictionary graph.vertex_property('old_labels').
+        Return a subpart of graph.edge_property(`edge_property`) at a given time-point.
 
         Args:
-           vertex_property: (str): a string refering to an existing 'graph.edge_property' to extract;
+           edge_property: (str): a string refering to an existing 'graph.edge_property' to extract;
            time_point` (int): time-point for which to return the `edge_property:;
 
         :Examples:
          graph.edge_property_with_image_labelpairs('wall_area', 0)
         """
-        from vplants.tissue_analysis.temporal_graph_from_image import edge2vertexpair_map
         eid2vidpair = edge2vertexpair_map(self, time_point)
-        #~ return dict([(tuple(sorted([label1,label2])),self.edge_property(edge_property)[eid]) for eid,(label1,label2) in eid2vidpair.iteritems() if self.edge_property(edge_property).has_key(eid)])
         tmp_dict = {}
         for eid,(label1,label2) in eid2vidpair.iteritems():
             if self.edge_property(edge_property).has_key(eid):
-                tmp_dict[tuple(sorted([label1,label2]))] = self.edge_property(edge_property)[eid]
-
+                tmp_dict[eid] = self.edge_property(edge_property)[eid]
         return tmp_dict
 
+    def edge_property_with_vids_labelpairs(self, edge_property, time_point):
+        """
+        Return a subpart of graph.edge_property(`edge_property`) with relabelled key-pair into "vids labelpairs" thanks to the dictionary from `edge2vertexpair_map`.
+
+        Args:
+           edge_property: (str): a string refering to an existing 'graph.edge_property' to extract;
+           time_point` (int): time-point for which to return the `edge_property:;
+
+        :Examples:
+         graph.edge_property_with_image_labelpairs('wall_area', 0)
+        """
+        eid2vidpair = edge2vertexpair_map(self, time_point)
+        tmp_dict = {}
+        for eid,(label1,label2) in eid2vidpair.iteritems():
+            if self.edge_property(edge_property).has_key(eid):
+                tmp_dict[(label1,label2)] = self.edge_property(edge_property)[eid]
+        return tmp_dict
 
     def edge_property_with_image_labelpairs(self, edge_property, time_point):
         """
         Return a subpart of graph.edge_property(`edge_property`) with relabelled key-pair into "images labelpairs" thanks to the dictionary graph.vertex_property('old_labels').
 
         Args:
-           vertex_property: (str): a string refering to an existing 'graph.edge_property' to extract;
+           edge_property: (str): a string refering to an existing 'graph.edge_property' to extract;
            time_point` (int): time-point for which to return the `edge_property:;
 
         :Examples:
          graph.edge_property_with_image_labelpairs('wall_area', 0)
         """
-        from vplants.tissue_analysis.temporal_graph_from_image import edge2labelpair_map
         eid2labelpair = edge2labelpair_map(self, time_point)
         return dict([(tuple(sorted([label1,label2])),self.edge_property(edge_property)[eid]) for eid,(label1,label2) in eid2labelpair.iteritems() if self.edge_property(edge_property).has_key(eid)])
-
 
     def domain_vids(self, domain_name):
         """
@@ -615,6 +623,323 @@ class TemporalPropertyGraph(PropertyGraph):
         else:
             print "No property 'domains' added to the graph yet!"
             return None
+
+
+
+def label2vertex_map(graph, time_point = None):
+    """
+        Compute a dictionary that map label to vertex id.
+        It requires the existence of a 'label' vertex property
+
+        :rtype: dict
+    """
+    if isinstance(graph, TemporalPropertyGraph):
+        assert time_point is not None
+        return dict([(j,i) for i,j in graph.vertex_property('label').iteritems() if graph.vertex_property('index')[i]==time_point])
+    else:
+        return dict([(j,i) for i,j in graph.vertex_property('label').iteritems()])
+
+def vertex2label_map(graph, time_point = None):
+    """
+        Compute a dictionary that map label to vertex id.
+        It requires the existence of a 'label' vertex property
+
+        :rtype: dict
+    """
+    if isinstance(graph, TemporalPropertyGraph):
+        assert time_point is not None
+        return dict([(i,j) for i,j in graph.vertex_property('label').iteritems() if graph.vertex_property('index')[i]==time_point])
+    else:
+        return dict([(i,j) for i,j in graph.vertex_property('label').iteritems()])
+
+def label2vertex(graph, labels, time_point = None):
+    """
+        Translate label as vertex id.
+        It requires the existence of a 'label' vertex property
+
+        :rtype: dict
+    """
+    label2vertexmap = label2vertex_map(graph, time_point)
+    if isinstance(labels,list):
+        return [label2vertexmap[label] for label in labels]
+    else:
+        return label2vertexmap[labels]
+
+def labelpair2edge_map(graph, time_point = None):
+    """
+        Compute a dictionary that map pair of old_labels to edge id.
+        It requires the existence of a 'label' property
+
+        :rtype: dict
+    """
+    mvertex2label = vertex2label_map(graph, time_point)
+
+    return dict([((mvertex2label[graph.source(eid)],mvertex2label[graph.target(eid)]),eid) for eid in graph.edges()
+     if (mvertex2label.has_key(graph.source(eid)) and mvertex2label.has_key(graph.target(eid)))] )
+
+def edge2labelpair_map(graph, time_point):
+    """
+        Compute a dictionary that map pair of old_labels to edge id.
+        It requires the existence of a 'label' property
+
+        :rtype: dict
+    """
+    mvertex2label = vertex2label_map(graph, time_point)
+
+    return dict([(eid, (mvertex2label[graph.source(eid)],mvertex2label[graph.target(eid)])) for eid in graph.edges()
+     if (mvertex2label.has_key(graph.source(eid)) and mvertex2label.has_key(graph.target(eid)))] )
+
+def vertexpair2edge_map(graph):
+    """
+        Compute a dictionary that map pair of vertex id to edge id.
+        It requires the existence of a 'label' property
+
+        :rtype: dict
+    """
+    return dict([((graph.source(eid),graph.target(eid)),eid) for eid in graph.edges()])
+
+def edge2vertexpair_map(graph, time_point = None):
+    """
+        Compute a dictionary that map pair of vertex id to edge id.
+        It requires the existence of a 'label' property
+
+        :rtype: dict
+    """
+    if time_point is None:
+        return dict([(eid,(graph.source(eid),graph.target(eid))) for eid in graph.edges()])
+    else:
+        e2v = {}
+        for eid in graph.edges():
+            vid1 = graph.source(eid)
+            vid2 = graph.target(eid)
+            if (graph.vertex_temporal_index(vid1) == time_point) and (graph.vertex_temporal_index(vid2) == time_point):
+                e2v[eid] = sorted((vid1, vid2))
+        return e2v
+
+def add_vertex_property_from_dictionary(graph, name, dictionary, mlabel2vertex = None, time_point = None, overwrite = False):
+    """
+        Add a vertex property with name 'name' to the graph build from an image.
+        The values of the property are given as by a dictionary where keys are vertex labels.
+        If overwrite is true, the property will be removed before adding the new values!
+    """
+    if isinstance(graph, TemporalPropertyGraph):
+        assert time_point is not None
+    if mlabel2vertex is None:
+        mlabel2vertex = label2vertex_map(graph, time_point)
+    if name in graph.vertex_properties() and not overwrite:
+        raise ValueError("Existing vertex property '{}'".format(name))
+    if overwrite:
+        print "You asked to overwrite property '{}', it will be removed first!".format(name)
+        graph.remove_vertex_property(name)
+
+    graph.add_vertex_property(name)
+    graph.vertex_property(name).update( dict([(mlabel2vertex[k], dictionary[k]) for k in dictionary]) )
+    return "Done."
+
+def add_vertex_property_from_label_and_value(graph, name, labels, property_values, mlabel2vertex = None, overwrite = False):
+    """
+        Add a vertex property with name 'name' to the graph build from an image.
+        The values of the property are given as two lists.
+        First one gives the label in the image and second gives the value of the property.
+        Labels are first translated in id of the graph and values are assigned to these ids in the graph
+        If overwrite is true, the property will be removed before adding the new values!
+    """
+    if mlabel2vertex is None:
+        mlabel2vertex = label2vertex_map(graph)
+    if name in graph.vertex_properties() and not overwrite:
+        raise ValueError("Existing vertex property '{}'".format(name))
+    if overwrite:
+        print "You asked to overwrite property '{}', it will be removed first!".format(name)
+        graph.remove_vertex_property(name)
+
+    graph.add_vertex_property(name)
+    graph.vertex_property(name).update(dict([(mlabel2vertex[i], v) for i,v in zip(labels,property_values)]))
+    return "Done."
+
+def add_vertex_property_from_label_property(graph, name, label_property, mlabel2vertex = None, overwrite = False):
+    """
+        Add a vertex property with name 'name' to the graph build from an image.
+        The values of the property are given as a dictionnary associating a label and a value.
+        Labels are first translated in id of the graph and values are assigned to these ids in the graph
+        If overwrite is true, the property will be removed before adding the new values!
+    """
+    if mlabel2vertex is None:
+        mlabel2vertex = label2vertex_map(graph)
+    if name in graph.vertex_properties() and not overwrite:
+        raise ValueError("Existing vertex property '{}'".format(name))
+    if overwrite:
+        print "You asked to overwrite property '{}', it will be removed first!".format(name)
+        graph.remove_vertex_property(name)
+
+    graph.add_vertex_property(name)
+    graph.vertex_property(name).update(dict([(mlabel2vertex[i], v) for i,v in label_property.iteritems()]))
+    return "Done."
+
+def add_edge_property_from_dictionary(graph, name, dictionary, mlabelpair2edge = None, overwrite = False):
+    """
+        Add an edge property with name 'name' to the graph build from an image.
+        The values of the property are given as by a dictionary where keys are vertex labels.
+        If overwrite is true, the property will be removed before adding the new values!
+    """
+    if mlabelpair2edge is None:
+        mlabelpair2edge = labelpair2edge_map(graph)
+    if name in graph.edge_properties() and not overwrite:
+        raise ValueError("Existing edge property '{}'".format(name))
+    if overwrite:
+        print "You asked to overwrite property '{}', it will be removed first!".format(name)
+        graph.remove_edge_property(name)
+
+    graph.add_edge_property(name)
+    graph.edge_property(name).update( dict([(mlabelpair2edge[k], dictionary[k]) for k in dictionary]) )
+    return "Done."
+
+def add_edge_property_from_eid_dictionary(graph, name, dictionary, overwrite = False):
+    """
+        Add an edge property with name 'name' to the graph build from an image.
+        The values of the property are given as by a dictionary where keys are vertex labels.
+        If overwrite is true, the property will be removed before adding the new values!
+    """
+    if name in graph.edge_properties() and not overwrite:
+        raise ValueError("Existing edge property '{}'".format(name))
+    if overwrite:
+        print "You asked to overwrite property '{}', it will be removed first!".format(name)
+        graph.remove_edge_property(name)
+
+    graph.add_edge_property(name)
+    graph.edge_property(name).update(dictionary)
+    return "Done."
+
+def add_edge_property_from_label_and_value(graph, name, label_pairs, property_values, mlabelpair2edge = None, overwrite = False):
+    """
+        Add an edge property with name 'name' to the graph build from an image.
+        The values of the property are given as two lists.
+        First one gives the pair of labels in the image that are connected and the second list gives the value of the property.
+        Pairs of labels are first translated in edge ids of the graph and values are assigned to these ids in the graph
+        If overwrite is true, the property will be removed before adding the new values!
+    """
+    if mlabelpair2edge is None:
+        mlabelpair2edge = labelpair2edge_map(graph)
+    if name in graph.edge_properties() and not overwrite:
+        raise ValueError("Existing edge property '{}'".format(name))
+    if overwrite:
+        print "You asked to overwrite property '{}', it will be removed first!".format(name)
+        graph.remove_edge_property(name)
+
+    graph.add_edge_property(name)
+    graph.edge_property(name).update(dict([(mlabelpair2edge[labelpair], value) for labelpair,value in zip(label_pairs,property_values)]))
+    return "Done."
+
+def add_edge_property_from_label_property(graph, name, labelpair_property, mlabelpair2edge = None, overwrite = False):
+    """
+        Add an edge property with name 'name' to the graph build from an image.
+        The values of the property are given as a dictionnary associating a pair of label and a value.
+        Pairs of labels are first translated in edge ids of the graph and values are assigned to these ids in the graph
+        If overwrite is true, the property will be removed before adding the new values!
+    """
+    if mlabelpair2edge is None:
+        mlabelpair2edge = labelpair2edge_map(graph)
+    if name in graph.edge_properties() and not overwrite:
+        raise ValueError("Existing edge property '{}'".format(name))
+    if overwrite:
+        print "You asked to overwrite property '{}', it will be removed first!".format(name)
+        graph.remove_edge_property(name)
+
+    graph.add_edge_property(name)
+    graph.edge_property(name).update(dict([(mlabelpair2edge[labelpair], value) for labelpair,value in labelpair_property.iteritems()]))
+    return "Done."
+
+def extend_edge_property_from_dictionary(graph, name, dictionary, time_point = None, mlabelpair2edge = None):
+    """
+        Add an edge property with name 'name' to the graph build from an image.
+        The values of the property are given as by a dictionary where keys are labelpairs.
+    """
+    if isinstance(graph, TemporalPropertyGraph):
+        assert time_point is not None
+    if mlabelpair2edge is None:
+        mlabelpair2edge = labelpair2edge_map(graph, time_point)
+    if name not in graph.edge_properties():
+        graph.add_edge_property(name)
+
+    print "The dictionary extending edge property '{}' contains {} tuples, against {} edges for time-point #{} !".format(name, len(dictionary.keys()), len(mlabelpair2edge.keys()), time_point)
+    edges_not_found = []
+    for k in dictionary:
+        sk = tuple(sorted(k)) # make sure the keys of the `dictionary` are sorted tuples
+        if sk in mlabelpair2edge.keys():
+            graph.edge_property(name).update({mlabelpair2edge[sk]: dictionary[k]})
+        else:
+            edges_not_found.append(sk)
+        
+    if len(edges_not_found) != 0:
+        print "{} vid-pairs have no edges between them in the graph: {}".format(len(edges_not_found), edges_not_found)
+    return "Done."
+
+def extend_vertex_property_from_dictionary(graph, name, dictionary, mlabel2vertex = None, time_point = None):
+    """
+        Add a vertex property with name 'name' to the graph build from an image.
+        The values of the property are given as by a dictionary where keys are labels.
+    """
+    if isinstance(graph, TemporalPropertyGraph):
+        assert time_point is not None
+    if mlabel2vertex is None:
+        mlabel2vertex = label2vertex_map(graph, time_point)
+    if name not in graph.vertex_properties():
+        graph.add_vertex_property(name)
+
+    missing_vertex = list(set(dictionary.keys())-set(mlabel2vertex.keys()))
+    if missing_vertex != []:
+        print "The dictionary extending vertex property '{}' contains {} labels, against {} vertices for time-point #{} !".format(name, len(dictionary.keys()), len(mlabel2vertex.keys()), time_point)
+    graph.vertex_property(name).update( dict([(mlabel2vertex[k], dictionary[k]) for k in dictionary if k in mlabel2vertex.keys()]) )
+    return "Done."
+
+def extend_graph_property_from_dictionary(graph, name, dictionary):
+    """
+    """
+    if name not in graph.graph_properties():
+        print "Adding graph_property '{}'".format(name)
+        graph.add_graph_property(name)
+
+    graph.graph_property(name).update(dictionary)
+    return "Done."
+
+def add_bool_atlas_data(graph, time_sorted_exp_patterns_fnames, exp_patterns_time_steps, exp_pattern_as_cid=True, patterns_path=None):
+    """
+    Add ATLAS data, "boolean" data giving all cells (values;cids/vids) expressing a given gene (keys).
+    
+    Args:
+       graph: (TemporalPropertyGraph) - graph to complete
+       time_sorted_exp_patterns_fnames: (list) - list of strings, defining filenames of expression patterns;
+       exp_patterns_time_steps: (list) - list of int, defining to which time-step the filenames of expression patterns relates to;
+       exp_pattern_as_cid: (bool) - says weither the cell ids are given as cids (image) or vids (tpg);
+       patterns_path: (str) - path where to find the filenames of expression patterns;
+       save_atlas: (bool) - save the tpg;
+    """
+    from vplants.tissue_analysis.misc import load_pickled_object
+    from vplants.tissue_analysis.temporal_graph_analysis import translate_ids_Image2Graph
+    # We list the time-steps to manually associate the correct time-point ID to each ATLAS:
+    time_steps = graph.graph_property('time_steps')
+    atlas_tp = [time_steps.index(ts) for ts in exp_patterns_time_steps]
+    print "Detected 'time-steps' association with 'patterns files':\n{}".format(zip([time_steps[ts] for ts in atlas_tp],time_sorted_exp_patterns_fnames))
+
+    ATLAS_genes = []
+    # Loop over the ATLAS to transfert genes expression levels to the TPG:
+    for tp, patterns_name in zip(atlas_tp, time_sorted_exp_patterns_fnames):
+        print "\n"
+        gene_dict = load_pickled_object(patterns_path+patterns_name)
+        print "Detected the following list of genes: {}.".format(gene_dict.keys())
+        ATLAS_genes += gene_dict.keys()
+        for gene_name, cids in gene_dict.iteritems():
+            gene_name = str(gene_name)
+            print "Exporting '{}' pattern at time point {}...".format(gene_name, tp)
+            print "Found {} initial cell-ids".format(len(cids)),
+            if exp_pattern_as_cid:
+                vids = translate_ids_Image2Graph(graph, cids, tp)
+                ncids = len(cids); nvids=len(vids)
+                print "and {}% ({}/{}) could be translated into vertex-ids!".format(round(float(nvids)/ncids,3)*100, nvids, ncids)
+            else:
+                vids = cids
+            graph.add_vertex_to_domain(vids, gene_name)
+
+    return graph
 
 
 def iterable(obj):
