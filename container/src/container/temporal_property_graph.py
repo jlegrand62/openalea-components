@@ -911,7 +911,6 @@ def add_bool_atlas_data(graph, time_sorted_exp_patterns_fnames, exp_patterns_tim
        exp_patterns_time_steps: (list) - list of int, defining to which time-step the filenames of expression patterns relates to;
        exp_pattern_as_cid: (bool) - says weither the cell ids are given as cids (image) or vids (tpg);
        patterns_path: (str) - path where to find the filenames of expression patterns;
-       save_atlas: (bool) - save the tpg;
     """
     from vplants.tissue_analysis.misc import load_pickled_object
     from vplants.tissue_analysis.temporal_graph_analysis import translate_ids_Image2Graph
