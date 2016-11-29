@@ -177,9 +177,8 @@ class PropertyGraph(IPropertyGraph, Graph):
         if property_name not in self._graph_property:
             raise PropertyError("property %s is not defined on graph"
                                 % property_name)
-
-        if self.graph_property(property_name) is not None or self.graph_property(property_name) != []:
-            assert isinstance(values, type(self.graph_property(property_name)))
+        #~ if self.graph_property(property_name) is not None or self.graph_property(property_name) != []:
+            #~ assert isinstance(values, type(self.graph_property(property_name)))
 
         if isinstance(self.graph_property(property_name), list):
             self._graph_property[property_name].extend(values)
@@ -711,6 +710,12 @@ class PropertyGraph(IPropertyGraph, Graph):
              - self.graph_property[domain_name] will return the list of all vertices belonging to 'domain_name';
              - self.vertex_property["domains"][vid] will return the list of all domains `vid` belong to.
         """
+        if not "domains" in self._graph_property:
+            self.add_graph_property("domains", [])
+            print "Initialisation of the 'domains' dictionary..."
+        if not domain_name in self.graph_property("domains"):
+            self._graph_property["domains"].append(domain_name)
+        
         if not domain_name in self._graph_property:
             #~ raise PropertyError("property %s is not defined on graph" % domain_name)
             print "Property {} is not defined for vertices on the graph, adding it...".format(domain_name)
