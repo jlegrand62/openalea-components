@@ -901,7 +901,7 @@ def extend_graph_property_from_dictionary(graph, name, dictionary):
     graph.graph_property(name).update(dictionary)
     return "Done."
 
-def add_bool_atlas_data(graph, time_sorted_exp_patterns_fnames, exp_patterns_time_steps, exp_pattern_as_cid=True, patterns_path=None):
+def add_bool_atlas_data(graph, time_sorted_exp_patterns_fnames, exp_patterns_time_steps, exp_pattern_as_cid=True, patterns_path=""):
     """
     Add ATLAS data, "boolean" data giving all cells (values;cids/vids) expressing a given gene (keys).
     
