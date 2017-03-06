@@ -867,3 +867,122 @@ class PropertyGraph(IPropertyGraph, Graph):
         gp.update(graph.graph)
 
         return g
+
+    def get_vertex_property_type(self, vtx_ppty):
+        """
+        Return the type (scalar|vector|tensor) of a given vertex property.
+        TODO: Not really working except for scalars...
+             ...should be more strict when defining variables types!!!
+        """
+        # Get every 'vertex_property values' `vtx_ppty` (if not None)...
+        values_list = [v for v in self.vertex_property(vtx_ppty).values() if v is not None]
+        # Now get their types and simplify this list to its 'unique values' using `set()`.
+        types_set = set([type(v) for v in values_list])
+        
+        if len(types_set) != 1:
+            raise warnings.warn("More than ONE type detected for vertex property '{}'! Please check it!".format(vtx_ppty))
+
+        first_val = values_list[0]
+        print first_val
+        first_type = type(first_val)
+        try:
+            le = first_val.len
+            if le != 1:
+                return "vector", le
+            else:
+                return "scalar"
+        except:
+            return "scalar"
+        try:
+            sh = first_val.shape
+            if sh != (1,1) and sh != ():
+                return "tensor", sh
+            else:
+                return "scalar"
+        except:
+            pass
+
+    def to_csv(self, PropertyGraph_id, ppty2export=None, out_fname=None, datetime2fname=True):
+        """
+        Export vertex properties `ppty2export` to a csv named `out_fname`.
+        Cells are given by row and properties by columns.
+        For lenght-D vectors properties, like barycenters, each D value will be outputed in a separate column.
+        By default export all properties.
+        
+        Args:
+          - `PropertyGraph_id` (str): name or id of the `PropertyGraph`.
+          - `ppty2export` (list): list of vid associated properties to export. None, by default, export them all.
+          - `out_fname` (str): the name of the csv file!
+          - `datetime2fname` (bool): if True (default) add the date to the csv filename.
+        
+        Based on the original work of V.Mirabet.
+        :TODO: move to TissueGraph? class.
+        """
+        # Init the CSV header with ['PropertyGraph_id'; 'vid'; 'x_bary'; 'y_bary'; 'z_bary';]:
+        csv_head = "PropertyGraph_id"+";"+"vid"+";"
+        # Get the possible ppty to export crossing required 'ppty_sublist' & availables ones (g.vertex_property_names):
+        if ppty2export is not None:
+            ppty2export = list(set(self.vertex_property_names()) & set(ppty2export))
+        else:
+            ppty2export = sorted(self.vertex_property_names())
+        
+        # Add these ppty names to export to the CSV header:
+        for ppty in ppty2export:
+            if ppty == "barycenter":
+                csv_head += "bary_x;bary_y;bary_z;"
+            elif ppty == "barycenter_voxel":
+                csv_head += "bary_vox_x;bary_vox_y;bary_vox_z;"
+            elif ppty == "inertia_values_3D":
+                csv_head += "inertia_val_1;inertia_val_2;inertia_val_3;"
+            else:
+                csv_head += ppty+";"
+        csv_head += "\n" # CSV header endline!
+        
+        ## Now loop the vids to get their feature values:
+        # thus creating a line for each cell with their associated features.
+        csv = csv_head
+        for vid in sorted(self.vertices()):
+            # Add 'flower_id':
+            csv += PropertyGraph_id+";"
+            # Add 'vid':
+            csv += str(vid)+";"
+            # Add cell feature values:
+            for ppty in ppty2export:
+                # In case of lenght-3 vectors:
+                if ppty == "barycenter" or ppty == "barycenter_voxel" or ppty == "inertia_values_3D":
+                    if self.vertex_property(ppty).has_key(vid):
+                        for i in range(3):
+                            csv += str(self.vertex_property(ppty)[vid][i])+";"
+                    else:
+                        csv += ";;;"
+                else:
+                    if vid in self.vertex_property(ppty):
+                        pc = self.vertex_property(ppty)[vid]
+                        if type(pc) == str:
+                            csv += pc+";"
+                        else:
+                            try:
+                                csv += str(float(pc))+";"
+                            except Exception as e:
+                                #print pc, e
+                                csv += ";"
+                    else:
+                        csv += ";"
+            # Remove the last ';' and put an endline '\n' instead:
+            csv = csv[:-1]+"\n"
+        
+        if out_fname is None:
+            out_fname = str(PropertyGraph_id)
+            datetime2fname = True
+        # Add date time if requested by 'date=True' argument:
+        if datetime2fname:
+            import time
+            m = time.localtime()
+            out_fname = out_fname+"_"+str(m.tm_year)+"_"+str(m.tm_mon)+"_"+str(m.tm_mday)+"_"+str(m.tm_hour)+"_"+str(m.tm_min)
+
+        # Finally write the WHOLE 's' string 
+        f=open(out_fname+".csv", "w")
+        f.write(csv)
+        f.close()
+        print "Done writting '{}' file!".format(out_fname+".csv")
+
