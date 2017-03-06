@@ -625,6 +625,51 @@ class TemporalPropertyGraph(PropertyGraph):
             return None
 
 
+    def spatial_graph_at_time(self, timepoint, vids=None, vtx_ppty=None, egde_ppty=None, graph_ppty=None):
+        """
+        Returns a spatial graph from a given time-point.
+        
+        :TODO:
+            Should return it with required ppty.
+        
+        return a PropertyGraph
+        """
+        result = PropertyGraph()
+        vids_tp = self.vertex_at_time(timepoint)
+        if vids is not None:
+            vids_tp = list(set(vids_tp)-set(vids))
+            if vids_tp == []:
+                raise ValueError("No vids left after filtering!")
+
+        for key, edges in self._vertices.items():
+            if key in vids_tp:
+                inedges, outedges = edges
+                sortedinedges = set([eid for eid in inedges if ((self.source(eid) in vids_tp) and (self.edge_property('edge_type')[eid]=='s'))])
+                sortedoutedges = set([eid for eid in outedges if ((self.target(eid) in vids_tp) and (self.edge_property('edge_type')[eid]=='s'))])
+                result._vertices.add((sortedinedges,sortedoutedges), key)
+                for eid in sortedoutedges:
+                    result._edges.add(self._edges[eid], eid)
+        
+        if vtx_ppty is not None:
+            for ppty in vtx_ppty:
+                try:
+                    ppty_values = [p for k,p in self.vertex_property(ppty).iteritems() if k in vids_tp]
+                    result = add_vertex_property_from_dictionary(result, ppty, ppty_values)
+                except:
+                    print "Failed to import '{}' vertex_property! Continue..."
+        
+        return result
+
+    def greedy_spatial_colormap(self, time_point, vids=None):
+        """
+        Uses `networkx.greedy_color` to extract a neighbor diverging colormap.
+        """
+        from networkx import greedy_color 
+        g = self.spatial_graph_at_time(time_point, vids)
+        nxg = g.to_networkx()
+        tp_color_dict = greedy_color(nxg)
+        return tp_color_dict
+
 
 def label2vertex_map(graph, time_point = None):
     """
