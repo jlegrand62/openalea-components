@@ -22,8 +22,6 @@ __revision__ = " $Id$ "
 import warnings, numpy as np
 from property_graph import *
 
-from vplants.tissue_analysis.temporal_graph_analysis import translate_keys_Graph2Image, exist_all_relative_at_rank
-
 class TemporalPropertyGraph(PropertyGraph):
     """
     Simple implementation of PropertyGraph using
@@ -34,6 +32,9 @@ class TemporalPropertyGraph(PropertyGraph):
     TEMPORAL = 't'
 
     def __init__(self, graph=None, **kwds):
+        """
+        Initialisation of the `TemporalPropertyGraph` has a `PropertyGraph` object.
+        """
         PropertyGraph.__init__(self, graph, idgenerator='max',**kwds)
         self.add_edge_property('edge_type')
 
@@ -199,7 +200,7 @@ class TemporalPropertyGraph(PropertyGraph):
                 #~ print "Check if you are not using an out-dated graph and erase temporary files (TPG creation...)."
                 #~ print "Or maybe the lignage is detected as 'incomplete' because some cells have been removed before topological-graph computation."
             elif unused_lineage != {}:
-                print "Some lineages were not used, most likely because the cells they were related to have been deleted before topological-graph computation."
+                print "Some lineages were not used, most likely because the vertex they were related to have been deleted during topological-graph computation."
             if no_ancestor != {}:
                 print "   - {} have missing ancestors in their topological graph (at time {}).".format(len(no_ancestor), current_index-1)
             if no_all_desc != {}:
@@ -443,6 +444,80 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         return self.rank_ancestors(vid,rank) != set()
 
+    def _vertex_has_relative_at_rank(self, vid, rank):
+        """
+        Check if there is at least ONE relative of the 'vid' up to a given 'rank' (starting from the vid temporal index).
+        If the rank is positive or negative, respectively check for descendants or ancestors.
+
+        Args:
+         - 'self' (TPG): the TPG to be used for translation
+         - 'vid' (int): the initial point to look-out for rank existence.
+         - 'rank' (int): the rank to test.
+        """
+        ## Obvious FALSE cases:
+        # rank > max_self_temporal_depth - vid_index:
+        if rank > self.nb_time_points-1 - self.vertex_property('index')[vid]:
+            print "WARNING: rank > max_self_temporal_depth - vid_index !"
+            return False
+        # Null rank:
+        if rank == 0:
+            print "WARNING: Null rank !"
+            return False
+        ## Non-obvious cases:
+        if (rank > 0):
+            try :
+                return self.descendants(vid,rank)-self.descendants(vid,rank-1) != set()
+            except:
+                return False
+        if (rank < 0):
+            try :
+                return self.ancestors(vid,abs(rank))-self.ancestors(vid,abs(rank)-1) != set()
+            except:
+                return False
+
+    def _vertex_has_all_relative_at_rank(self, vid, rank):
+        """
+        Check if lineage is complete over several ranks.
+        For a positive rank, check if `vid` have all its descendants lineaged up to `rank`.
+        For a negative rank, check if the `vid` rank-ancestor (from self.vertex_temporal_index(vid)-abs(rank)) is lineaged up to `vid` time-point.
+        It is the same as checking that all rank-siblings of vid are lineaged.
+        !!!!! WARNING THIS ASSUME THE ABSENCE OF APOPTOSIS IN THE TISSUE !!!!!
+
+        Args:
+           self: TPG to browse;
+         - 'vid' : a vertex id.
+         - 'rank' : neighborhood at distance 'rank' will be used.
+        """
+        if rank == 0 or abs(rank) > self.nb_time_points-1:
+            return False
+
+        if rank == 1 or rank == -1:
+            return self._vertex_has_relative_at_rank(self, vid, rank)
+
+        if (rank > 0):
+            descendants_at_rank = {}
+            descendants_at_rank[1] = self.children(vid)
+            if descendants_at_rank[1] == set():
+                return False
+            for r in xrange(2,rank+1):
+                for v in descendants_at_rank[r-1]:
+                    if self.children(v) == set():
+                        return False
+                    if descendants_at_rank.has_key(r):
+                        descendants_at_rank[r].update(self.children(v))
+                    else:
+                        descendants_at_rank[r] = self.children(v)
+            return True
+
+        if (rank < 0):
+            vid_rank_ancestor = list(self.rank_ancestors(vid,abs(rank)))
+            if len(vid_rank_ancestor) == 1:
+                vid_rank_ancestor = vid_rank_ancestor[0]
+                return self._vertex_has_all_relative_at_rank(self, vid_rank_ancestor, abs(rank))
+            elif len(vid_rank_ancestor) > 1:
+                print "More than ONE ancestor?!! Sorry but... WEIRD!!!!"
+            else:
+                return False
 
     def _lineaged_as_ancestor(self, time_point=None, rank=1):
         """ Return a list of vertex lineaged as ancestors."""
@@ -463,7 +538,7 @@ class TemporalPropertyGraph(PropertyGraph):
         Return a list of fully lineaged vertex (from a given `time_point` if not None), i.e. lineaged from start to end.
         """
         rank = self.nb_time_points-1
-        flv = self.descendants([k for k in self.vertex_at_time(0) if exist_all_relative_at_rank(self, k, rank)], rank)
+        flv = self.descendants([k for k in self.vertex_at_time(0) if self._vertex_has_all_relative_at_rank(self, k, rank)], rank)
         if time_point is None:
             return flv
         else:
@@ -495,9 +570,8 @@ class TemporalPropertyGraph(PropertyGraph):
         if fully_lineaged:
             vids = self._fully_lineaged_vertex(time_point=None)
         else:
-            vids = [k for k in self.vertices() if (exist_all_relative_at_rank(self, k, lineage_rank) or exist_all_relative_at_rank(self, k, -lineage_rank))]
+            vids = [k for k in self.vertices() if (self._vertex_has_all_relative_at_rank(self, k, lineage_rank) or self._vertex_has_all_relative_at_rank(self, k, -lineage_rank))]
         return list( set(vids) & set(vids_anc) & set(vids_desc) )
-
 
     def _all_vertex_at_time(self, time_point):
         """ Return a list containing all vertex assigned to a given `time_point`."""
@@ -539,29 +613,6 @@ class TemporalPropertyGraph(PropertyGraph):
         vids = self.vertex_at_time(time_point, lineaged, fully_lineaged, as_ancestor, as_descendant)
         return dict([(k,self.vertex_property(vertex_property)[k]) for k in vids if self.vertex_property(vertex_property).has_key(k)])
 
-    def vertex_property_with_image_labels(self, vertex_property, time_point, lineaged=False, fully_lineaged=False, as_ancestor=False, as_descendant=False, lineage_rank=1):
-        """
-        Return a subpart of graph.vertex_property(`vertex_property`) with relabelled keys into "images labels" thanks to the dictionary graph.vertex_property('old_labels').
-        Since "images labels" can be similar (not unique), it is mandatory to give a `time_point`.
-        Additional parameters can be given and are related to the 'self.vertex_property_at_time' parameters.
-
-        Args:
-           vertex_property: (str): a string refering to an existing 'graph.vertex_property' to extract;
-           time_point` (int): time-point for which to return the `vertex_property:;
-           lineaged: (bool) : if True, return vertices having at least a parent or a child(ren);
-         - 'lineage_rank' (int): usefull if you want to check the lineage for a different rank than the rank-1 temporal neighborhood;
-           fully_lineaged: (bool) : if True, return vertices linked from the beginning to the end of the graph;
-           as_parent: (bool) : if True, return vertices lineaged as parents;
-           as_children: (bool) : if True, return vertices lineaged as children.
-        Returns:
-         - *key_ vertex/cell label, *values_ `vertex_property`
-
-        :Examples:
-         graph.vertex_property_with_image_labels('volume', 0)
-
-        """
-        return translate_keys_Graph2Image(self, self.vertex_property_at_time(vertex_property, time_point, lineaged, fully_lineaged, as_ancestor, as_descendant), time_point)
-
     def edge_property_at_time(self, edge_property, time_point):
         """
         Return a subpart of graph.edge_property(`edge_property`) at a given time-point.
@@ -597,33 +648,6 @@ class TemporalPropertyGraph(PropertyGraph):
             if self.edge_property(edge_property).has_key(eid):
                 tmp_dict[(label1,label2)] = self.edge_property(edge_property)[eid]
         return tmp_dict
-
-    def edge_property_with_image_labelpairs(self, edge_property, time_point):
-        """
-        Return a subpart of graph.edge_property(`edge_property`) with relabelled key-pair into "images labelpairs" thanks to the dictionary graph.vertex_property('old_labels').
-
-        Args:
-           edge_property: (str): a string refering to an existing 'graph.edge_property' to extract;
-           time_point` (int): time-point for which to return the `edge_property:;
-
-        :Examples:
-         graph.edge_property_with_image_labelpairs('wall_area', 0)
-        """
-        eid2labelpair = edge2labelpair_map(self, time_point)
-        return dict([(tuple(sorted([label1,label2])),self.edge_property(edge_property)[eid]) for eid,(label1,label2) in eid2labelpair.iteritems() if self.edge_property(edge_property).has_key(eid)])
-
-    def domain_vids(self, domain_name):
-        """
-        Return a list of vids (TPG vertex id type) that belong to the domain `domain_name` according to graph.
-        Args:
-           domain_name` (str) : the name of a domain (e.g. from `self.add_vertex_to_domain():)
-        """
-        if 'domains' in list(self.vertex_properties()):
-            return sorted(list(set([k for k,v in self.vertex_property('domains').iteritems() for r in v if r==domain_name])))
-        else:
-            print "No property 'domains' added to the graph yet!"
-            return None
-
 
 
 def label2vertex_map(graph, time_point = None):
@@ -716,6 +740,7 @@ def edge2vertexpair_map(graph, time_point = None):
                 e2v[eid] = sorted((vid1, vid2))
         return e2v
 
+
 def add_vertex_property_from_dictionary(graph, name, dictionary, mlabel2vertex = None, time_point = None, overwrite = False):
     """
         Add a vertex property with name 'name' to the graph build from an image.
@@ -774,6 +799,7 @@ def add_vertex_property_from_label_property(graph, name, label_property, mlabel2
     graph.add_vertex_property(name)
     graph.vertex_property(name).update(dict([(mlabel2vertex[i], v) for i,v in label_property.iteritems()]))
     return "Done."
+
 
 def add_edge_property_from_dictionary(graph, name, dictionary, mlabelpair2edge = None, overwrite = False):
     """
@@ -848,6 +874,7 @@ def add_edge_property_from_label_property(graph, name, labelpair_property, mlabe
     graph.edge_property(name).update(dict([(mlabelpair2edge[labelpair], value) for labelpair,value in labelpair_property.iteritems()]))
     return "Done."
 
+
 def extend_edge_property_from_dictionary(graph, name, dictionary, time_point = None, mlabelpair2edge = None):
     """
         Add an edge property with name 'name' to the graph build from an image.
@@ -900,46 +927,6 @@ def extend_graph_property_from_dictionary(graph, name, dictionary):
 
     graph.graph_property(name).update(dictionary)
     return "Done."
-
-def add_bool_atlas_data(graph, time_sorted_exp_patterns_fnames, exp_patterns_time_steps, exp_pattern_as_cid=True, patterns_path=""):
-    """
-    Add ATLAS data, "boolean" data giving all cells (values;cids/vids) expressing a given gene (keys).
-    
-    Args:
-       graph: (TemporalPropertyGraph) - graph to complete
-       time_sorted_exp_patterns_fnames: (list) - list of strings, defining filenames of expression patterns;
-       exp_patterns_time_steps: (list) - list of int, defining to which time-step the filenames of expression patterns relates to;
-       exp_pattern_as_cid: (bool) - says weither the cell ids are given as cids (image) or vids (tpg);
-       patterns_path: (str) - path where to find the filenames of expression patterns;
-    """
-    from vplants.tissue_analysis.misc import load_pickled_object
-    from vplants.tissue_analysis.temporal_graph_analysis import translate_ids_Image2Graph
-    # We list the time-steps to manually associate the correct time-point ID to each ATLAS:
-    time_steps = graph.graph_property('time_steps')
-    atlas_tp = [time_steps.index(ts) for ts in exp_patterns_time_steps]
-    print "Detected 'time-steps' association with 'patterns files':\n{}".format(zip([time_steps[ts] for ts in atlas_tp],time_sorted_exp_patterns_fnames))
-
-    ATLAS_genes = []
-    # Loop over the ATLAS to transfert genes expression levels to the TPG:
-    for tp, patterns_name in zip(atlas_tp, time_sorted_exp_patterns_fnames):
-        print "\n"
-        gene_dict = load_pickled_object(patterns_path+patterns_name)
-        print "Detected the following list of genes: {}.".format(gene_dict.keys())
-        ATLAS_genes += gene_dict.keys()
-        for gene_name, cids in gene_dict.iteritems():
-            gene_name = str(gene_name)
-            print "Exporting '{}' pattern at time point {}...".format(gene_name, tp)
-            print "Found {} initial cell-ids".format(len(cids)),
-            if exp_pattern_as_cid:
-                vids = translate_ids_Image2Graph(graph, cids, tp)
-                ncids = len(cids); nvids=len(vids)
-                print "and {}% ({}/{}) could be translated into vertex-ids!".format(round(float(nvids)/ncids,3)*100, nvids, ncids)
-            else:
-                vids = cids
-            graph.add_vertex_to_domain(vids, gene_name)
-
-    return graph
-
 
 def iterable(obj):
     try :
