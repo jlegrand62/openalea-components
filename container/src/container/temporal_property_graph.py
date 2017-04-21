@@ -629,15 +629,21 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         Returns a spatial graph from a given time-point.
         
+        :Arguments:
+          - `timepoint` (int) - time point for which we will return the PropertyGraph;
+          - `vids` (list) - list of vids to keep, other vids from this time-point will not be returned;
+          - `vtx_ppty` (str|list(str)) - a vertex property to return in the PropertyGraph;
+          - `egde_ppty` (str|list(str)) - an edge property to return in the PropertyGraph;
+          - `graph_ppty` (str|list(str)) - a graph property to return in the PropertyGraph;
         :TODO:
-            Should return it with required ppty.
+            Should also return `egde_ppty` and/or `graph_ppty` when required.
         
-        return a PropertyGraph
+        :Returns: a PropertyGraph from given `time_point`. Can contain properties.
         """
         result = PropertyGraph()
         vids_tp = self.vertex_at_time(timepoint)
         if vids is not None:
-            vids_tp = list(set(vids_tp)-set(vids))
+            vids_tp = list(set(vids_tp) & set(vids))
             if vids_tp == []:
                 raise ValueError("No vids left after filtering!")
 
@@ -651,12 +657,15 @@ class TemporalPropertyGraph(PropertyGraph):
                     result._edges.add(self._edges[eid], eid)
         
         if vtx_ppty is not None:
+            if isinstance(vtx_ppty, str):
+                vtx_ppty = [vtx_ppty]
             for ppty in vtx_ppty:
                 try:
                     ppty_values = [p for k,p in self.vertex_property(ppty).iteritems() if k in vids_tp]
                     result = add_vertex_property_from_dictionary(result, ppty, ppty_values)
                 except:
-                    print "Failed to import '{}' vertex_property! Continue..."
+                    print "Failed to import '{}' vertex_property...".format(ppty)
+                    pass
         
         return result
 
