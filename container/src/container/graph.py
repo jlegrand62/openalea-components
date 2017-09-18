@@ -49,8 +49,18 @@ class Graph (IGraph,\
         """
         self._vertices=IdDict(idgenerator = idgenerator)
         self._edges=IdDict(idgenerator = idgenerator)
-        if graph is not None :
+        if graph is None:
+            print "Constructing EMPTY Graph object"
+        else:
             dummy=self.extend(graph)
+
+    def __str__(self):
+        """
+        Format returned instance type informations.
+        """
+        print "Object Graph:"
+        print "  - {} vertices".format(len(self._vertices))
+        print "  - {} edges".format(len(self._edges))
 
     # ##########################################################
     #

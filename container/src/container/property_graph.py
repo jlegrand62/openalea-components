@@ -39,23 +39,67 @@ class PropertyGraph(IPropertyGraph, Graph):
     metaeidtypepropertyname = "valueproperty_as_eid"
     
     def __init__(self, graph=None, **kwds):
-        self._vertex_property = {}
-        self._edge_property = {}
-        self._graph_property = {}
+        if graph is None:
+            self._vertex_property = {}
+            self._edge_property = {}
+            self._graph_property = {}
+            print "Constructing EMPTY PropertyGraph object"
+        else:
+            self._vertex_property = graph._vertex_property
+            self._edge_property = graph._edge_property
+            self._graph_property = graph._graph_property
         Graph.__init__(self, graph, **kwds)
 
+    def __str__(self):
+        """
+        Format returned instance type informations.
+        """
+        print "Object PropertyGraph:"
+        print "  - {} vertices".format(len(self._vertices))
+        print "  - {} edges".format(len(self._edges))
+        print "  - {} vertex properties".format(len(self._vertex_property))
+        print "  - {} edge properties".format(len(self._edge_property))
+        print "  - {} edge properties".format(len(self._graph_property))
+
     def vertex_property_names(self):
-        """todo"""
+        """
+        Return a key-iterator of vertex property names in the object.
+
+        Returns
+        -------
+        iterator of self._vertex_property.keys()
+        """
         return self._vertex_property.iterkeys()
     vertex_property_names.__doc__ = IPropertyGraph.vertex_property_names.__doc__
 
     def vertex_properties(self):
-        """todo"""
+        """
+        Returns all the vertex properties in the object as a dictionary
+        with as keys, the property names and as values, a dictionary of corresponding
+        vid values
+
+        Returns
+        -------
+        a dictionary {'property_name': {vid: vid_ppty_value}}
+        """
         return self._vertex_property
     # vertex_properties.__doc__ = IPropertyGraph.vertex_properties.__doc__
 
     def vertex_property(self, property_name, vids = None):
-        """todo"""
+        """
+        Return the dictionary of vid values, filtered by vids if not None.
+
+        Parameters
+        ----------
+        property_name: str
+            the name of an existing vertex property
+        vids: list
+            the list of vids to return
+
+        Returns
+        -------
+        a dictionary {vid: vid_ppty_value}
+        """
         try:
             if vids is not None:
                 return dict([(k,v) for k,v in self._vertex_property[property_name].iteritems() if k in vids])
@@ -67,26 +111,89 @@ class PropertyGraph(IPropertyGraph, Graph):
     vertex_property.__doc__=IPropertyGraph.vertex_property.__doc__
 
     def edge_property_names(self):
-        """todo"""
+        """
+        Return a key-iterator of edges property names in the object.
+
+        Returns
+        -------
+        iterator of self._edges_property.keys()
+        """
         return self._edge_property.iterkeys()
     edge_property_names.__doc__ = IPropertyGraph.edge_property_names.__doc__
 
     def edge_properties(self):
-        """todo"""
+        """
+        Returns all the edges properties in the object as a dictionary
+        with as keys, the property names and as values, a dictionary of corresponding
+        eid values
+
+        Returns
+        -------
+        a dictionary {'property_name': {eid: eid_ppty_value}}, for all edge properties
+        """
         return self._edge_property
     #  edge_properties.__doc__ = IPropertyGraph. edge_properties.__doc__
 
-    def edge_property(self, property_name):
-        """todo"""
+    def edge_property(self, property_name, eids=None):
+        """
+        Return the dictionary of eid values, filtered by eids if not None.
+
+        Parameters
+        ----------
+        property_name: str
+            the name of an existing edge property
+        vids: list
+            the list of eids to return
+
+        Returns
+        -------
+        a dictionary {eid: eid_ppty_value}
+        """
         try:
-            return self._edge_property[property_name]
+            if eids is not None:
+                return dict([(k,v) for k,v in self._edge_property[property_name].iteritems() if k in eids])
+            else:
+                return self._edge_property[property_name]
         except KeyError:
             raise PropertyError("property %s is undefined on edges"
                                 % property_name)
     edge_property.__doc__ = IPropertyGraph.edge_property.__doc__
 
+    def graph_property_names(self):
+        """
+        Return a key-iterator of graph property names in the object.
+
+        Returns
+        -------
+        iterator of self._graph_property.keys()
+        """
+        return self._graph_property.iterkeys()
+
+    def graph_properties(self):
+        """
+        Returns all the graph properties in the object as a dictionary
+        with as keys, the graph property names and as values, a dictionary of
+        corresponding graph values
+
+        Returns
+        -------
+        a dictionary {'property_name': graph_property} for all graph properties
+        """
+        return self._graph_property
+
     def graph_property(self, property_name):
-        """todo"""
+        """
+        Return the corresponding graph property value.
+
+        Parameters
+        ----------
+        property_name: str
+            the name of an existing graph property
+
+        Returns
+        -------
+        self._graph_property[property_name]
+        """
         try:
             return self._graph_property[property_name]
         except KeyError:
@@ -94,104 +201,291 @@ class PropertyGraph(IPropertyGraph, Graph):
                                 % property_name)
     graph_property.__doc__ = IPropertyGraph.graph_property.__doc__
 
-    def graph_properties(self):
-        return self._graph_property
 
-    def graph_property_names(self):
-        """todo"""
-        return self._graph_property.iterkeys()
+    def add_vertex_property(self, property_name, values=None):
+        """
+        Add a new vertex property, with values if it is a vid dictionary, or leaves
+        it empty if None.
 
-    def add_vertex_property(self, property_name, values = None):
-        """todo"""
+        Parameters
+        ----------
+        property_name : str
+            the name of the property to add
+        values : dict | None
+            a dictionary with vid as keys, None will add an empty property
+
+        Returns
+        -------
+        Nothing, edit object
+        """
         if property_name in self._vertex_property:
             raise PropertyError("property %s is already defined on vertices"
                                 % property_name)
-        if values is None: values = {}
+        if values is None:
+            print "Creating EMPTY vertex property '{}'".format(property_name)
+            values = {}
+        else:
+            try:
+                assert isinstance(values, dict)
+            except:
+                raise AssertionError("Values must be a dictionary {vid: value}")
         self._vertex_property[property_name] = values
     add_vertex_property.__doc__ = IPropertyGraph.add_vertex_property.__doc__
 
-    def extend_vertex_property(self, property_name, values ):
-        """todo AND TO CHECK AND TEST !!"""
+
+    def extend_vertex_property(self, property_name, values):
+        """
+        Extend an existing vertex property 'property_name' with 'values', a vid dictionary.
+
+        Parameters
+        ----------
+        property_name : str
+            a string mathing an exiting property
+        values : dict
+            a dictionary {vid: vid_values}
+
+        Returns
+        -------
+        Nothing, edit object
+
+        Notes
+        ----
+        * 'property_name' should exist
+        * 'values' cannot be an empty dictionary
+        """
         if not isinstance(values, dict):
             raise TypeError("Values %s is not a type 'dict'" % values)
+        else:
+            try:
+                assert values != {}
+            except:
+                raise AssertionError("Values is an EMPTY 'dict'")
         if property_name not in self._vertex_property:
             print PropertyError("Property %s is not defined on vertices"
                                 % property_name)
             print "Creating vertex property %s" % property_name
             self._vertex_property[property_name] = {}
-        
+
+        id_duplicate = []
         for k,v in values.iteritems():
             if k in self.vertices():
                 if not self._vertex_property[property_name].has_key(k):
                     self._vertex_property[property_name][k] = v
                 else:
-                    print "Vertex id {} already has a value for vertex property {}".format(k, property_name)
+                    id_duplicate.append(k)
             else:
                 print "Vertex id {} doesn't exist in the graph !!".format(k)
+        if id_duplicate != []:
+            print "Following vertex ids already have a value for property {}".format(
+                property_name, id_duplicate)
 
     def remove_vertex_property(self, property_name):
-        """todo"""
+        """
+        Remove the vertex property 'property_name' of the object.
+
+        Parameters
+        ----------
+        property_name : str
+            name of the vertex property to remove
+
+        Returns
+        -------
+        Nothing, edit object
+        """
         try:
             del self._graph_property['units'][property_name]
         except:
             pass
         try:
             del self._vertex_property[property_name]
+            print "Removed vertex property '{}' (n_vids={})".format(
+                property_name, len(graph.vertex_property(property_name)))
         except KeyError:
             raise PropertyError("property %s is undefined on vertices"
                                 % property_name)
     remove_vertex_property.__doc__ = IPropertyGraph.remove_vertex_property.__doc__
 
-    def add_edge_property(self, property_name, values =  None):
-        """todo"""
+    def add_edge_property(self, property_name, values=None):
+        """
+        Add a new edge property, with values if it is an eid dictionary, or leaves
+        it empty if None.
+
+        Parameters
+        ----------
+        property_name : str
+            the name of the property to add
+        values : dict | None
+            a dictionary with eid as keys, None will add an empty property
+
+        Returns
+        -------
+        Nothing, edit object
+        """
         if property_name in self._edge_property:
             raise PropertyError("property %s is already defined on edges"
                                 % property_name)
-        if values is None: values = {}
+        if values is None:
+            print "Creating EMPTY egde property '{}'".format(property_name)
+            values = {}
+        try:
+            assert isinstance(values, dict)
+        except:
+            raise AssertionError("Values must be a dictionary {eid: value}")
         self._edge_property[property_name] = values
     add_edge_property.__doc__ = IPropertyGraph.add_edge_property.__doc__
 
+    def extend_edge_property(self, property_name, values):
+        """
+        Extend an existing egde property 'property_name' with 'values', an eid dictionary.
+
+        Parameters
+        ----------
+        property_name : str
+            a string mathing an exiting property
+        values : dict
+            a dictionary {eid: eid_values}
+
+        Returns
+        -------
+        Nothing, edit object
+
+        Notes
+        ----
+        * 'property_name' should exist
+        * 'values' cannot be an empty dictionary
+        """
+        if not isinstance(values, dict):
+            raise TypeError("Values %s is not a type 'dict'" % values)
+        else:
+            try:
+                assert values != {}
+            except:
+                raise AssertionError("Values is an EMPTY 'dict'")
+        if property_name not in self._edge_property:
+            print PropertyError("Property %s is not defined on vertices"
+                                % property_name)
+            print "Creating vertex property %s" % property_name
+            self._edge_property[property_name] = {}
+
+        id_duplicate = []
+        for k,v in values.iteritems():
+            if k in self.vertices():
+                if not self._edge_property[property_name].has_key(k):
+                    self._edge_property[property_name][k] = v
+                else:
+                    id_duplicate.append(k)
+            else:
+                print "Edge id {} doesn't exist in the graph !!".format(k)
+        if id_duplicate != []:
+            print "Following edge ids already have a value for property {}".format(
+                property_name, id_duplicate)
+
     def remove_edge_property(self, property_name):
-        """todo"""
+        """
+        Remove the edge property 'property_name' of the object.
+
+        Parameters
+        ----------
+        property_name : str
+            name of the edge property to remove
+
+        Returns
+        -------
+        Nothing, edit object
+        """
         try:
             del self._graph_property['units'][property_name]
         except:
             pass
         try:
             del self._edge_property[property_name]
+            print "Removed edge property '{}' (n_eids={})".format(property_name, len(graph.edge_property(property_name)))
         except KeyError:
             raise PropertyError("property %s is undefined on edges"
                                 % property_name)
     remove_edge_property.__doc__ = IPropertyGraph.remove_edge_property.__doc__
 
-    def add_graph_property(self, property_name, values = None):
-        """todo"""
+    def add_graph_property(self, property_name, values=None):
+        """
+        Add a new graph property, empty if values is None else add it to the object.
+
+        Parameters
+        ----------
+        property_name : str
+            the name of the property to add
+        values : Any | None
+            any type or object
+
+        Returns
+        -------
+        Nothing, edit object
+        """
         if property_name in self._graph_property:
             raise PropertyError("property %s is already defined on graph"
                                 % property_name)
-        if values is None: values = {}
+        if values is None:
+            print "Creating EMPTY graph property '{}'".format(property_name)
         self._graph_property[property_name] = values
     
     def extend_graph_property(self, property_name, values):
-        """todo"""
-        assert values is not None
+        """
+        Extend an existing graph property 'property_name' with 'values'.
+
+        Parameters
+        ----------
+        property_name : str
+            a string mathing an exiting property
+        values : Any
+            any type or object
+
+        Returns
+        -------
+        Nothing, edit object
+
+        Notes
+        ----
+        * 'property_name' should exist
+        * 'values' cannot be an empty dictionary
+        """
         if property_name not in self._graph_property:
             raise PropertyError("property %s is not defined on graph"
                                 % property_name)
-        #~ if self.graph_property(property_name) is not None or self.graph_property(property_name) != []:
-            #~ assert isinstance(values, type(self.graph_property(property_name)))
 
+        try:
+            assert values is not None
+        except:
+            raise AssertionError("Values is EMPTY (None)")
         if isinstance(self.graph_property(property_name), list):
+            try:
+                assert values != []
+            except:
+                raise AssertionError("Values is an EMPTY 'list'")
             self._graph_property[property_name].extend(values)
         elif isinstance(self.graph_property(property_name), dict):
+            try:
+                assert values != {}
+            except:
+                raise AssertionError("Values is an EMPTY 'dict'")
             self._graph_property[property_name].update( dict([(k,v) for k,v in values.iteritems() if k not in self.graph_property(property_name).keys()]) )
         else:
-            print "Unable to extend 'graph_property' with this type of data: {}".format(type(values))
+            print "Unable to extend 'graph_property' (type:{}) with this type of data: {}".format(type(self._graph_property[property_name]), type(values))
 
     def remove_graph_property(self, property_name):
-        """todo"""
+        """
+        Remove the graph property 'property_name' of the object.
+
+        Parameters
+        ----------
+        property_name : str
+            name of the graph property to remove
+
+        Returns
+        -------
+        Nothing, edit object
+        """
         try:
             del self._graph_property[property_name]
+            print "Removed graph property '{}' (n_vids={})".format(property_name, len(graph.graph_property(property_name)))
         except KeyError:
             raise PropertyError("property %s is undefined on graph"
                                 % property_name)
@@ -201,14 +495,59 @@ class PropertyGraph(IPropertyGraph, Graph):
             pass
 
     def remove_vertex(self, vid):
-        """todo"""
+        """
+        Remove vertex if 'vid' from the object.
+        It is also removed from any vertex property!
+
+        Parameters
+        ----------
+        vid : int
+            the id of the vertex to remoce
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        try:
+            assert graph.has_vertex(vid)
+        except:
+            raise AssertionError("'vid' {} is not in the list of vertices".format(vid))
         for prop in self._vertex_property.itervalues():
             prop.pop(vid, None)
         Graph.remove_vertex(self, vid)
     remove_vertex.__doc__ = Graph.remove_vertex.__doc__
 
+    def remove_edge(self, eid):
+        """
+        Remove the edge 'eid' from the object.
+
+        Parameters
+        ----------
+        eid : int
+            id of the edge to remove
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        try:
+            assert graph.has_edges(eid)
+        except:
+            raise AssertionError("'eid' {} is not in the list of edges".format(vid))
+        for prop in self._edge_property.itervalues():
+            prop.pop(eid, None)
+        Graph.remove_edge(self, eid)
+
+    remove_edge.__doc__ = Graph.remove_edge.__doc__
+
     def clear(self):
-        """todo"""
+        """
+        Clear the object of all vetex, edge and graph properties.
+
+        Returns
+        -------
+        Nothing, edit object
+        """
         for prop in self._vertex_property.itervalues():
             prop.clear()
         for prop in self._edge_property.itervalues():
@@ -218,15 +557,14 @@ class PropertyGraph(IPropertyGraph, Graph):
         Graph.clear(self)
     clear.__doc__ = Graph.clear.__doc__
 
-    def remove_edge(self, eid):
-        """todo"""
-        for prop in self._edge_property.itervalues():
-            prop.pop(eid, None)
-        Graph.remove_edge(self, eid)
-    remove_edge.__doc__ = Graph.remove_edge.__doc__
-
     def clear_edges(self):
-        """todo"""
+        """
+        Remove all edges from the object.
+
+        Returns
+        -------
+        Nothing, edit object
+        """
         for prop in self._edge_property.itervalues():
             prop.clear()
         Graph.clear_edges(self)
@@ -262,7 +600,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         return dict([(key_translator(vid),value_translator(val)) for vid, val in values.iteritems()])
 
 
-    def _relabel_and_add_vertex_edge_properties(self,graph, trans_vid, trans_eid):
+    def _relabel_and_add_vertex_edge_properties(self, graph, trans_vid, trans_eid):
         
         # update properties on vertices
         for prop_name in graph.vertex_property_names():
@@ -295,14 +633,25 @@ class PropertyGraph(IPropertyGraph, Graph):
         return self._translate_property(old_prop, trans_vid, trans_eid, key_translator, value_translator)
     
     
-    def extend(self, graph):
-        """todo"""
-        
+    def extend_property_graph(self, graph):
+    # def extend(self, graph):
+        """
+        Extend the current object with another 'graph' of type Graph.
+
+        Parameters
+        ----------
+        graph : Graph | PropertyGraph
+            the object to use to extent the current one.
+
+        Returns
+        -------
+        Nothing, edit object
+        """
         # add and translate the vertex and edge ids of the second graph
         trans_vid, trans_eid = Graph.extend(self,graph)
         
         # relabel the edge and vertex property
-        self.__relabel_and_add_vertex_edge_properties(graph, trans_vid, trans_eid)
+        self._relabel_and_add_vertex_edge_properties(graph, trans_vid, trans_eid)
         
         # update properties on graph
         #gproperties = self.graph_property()
@@ -314,8 +663,9 @@ class PropertyGraph(IPropertyGraph, Graph):
             prop.update(newgproperties)
 
         return trans_vid, trans_eid
-        
-    extend.__doc__ = Graph.extend.__doc__
+
+    extend_property_graph.__doc__ = Graph.extend.__doc__
+    # extend.__doc__ = Graph.extend.__doc__
 
 
     def set_graph_property_value_to_vid_type(self, propertyname, property_type = VertexProperty):
@@ -880,7 +1230,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         types_set = set([type(v) for v in values_list])
         
         if len(types_set) != 1:
-            raise warnings.warn("More than ONE type detected for vertex property '{}'! Please check it!".format(vtx_ppty))
+            raise warnings.warn("More than ONE type detected for vertex property '{}' Please check it!".format(vtx_ppty))
 
         first_val = values_list[0]
         print first_val
