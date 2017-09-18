@@ -1230,7 +1230,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         types_set = set([type(v) for v in values_list])
         
         if len(types_set) != 1:
-            raise warnings.warn("More than ONE type detected for vertex property '{}' Please check it!".format(vtx_ppty))
+            raise warnings.warn("More than ONE type detected for vertex property '{}'! Please check it!".format(vtx_ppty))
 
         first_val = values_list[0]
         print first_val
