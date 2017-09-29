@@ -2,7 +2,7 @@
 # Otherelse it may breaks everything see commit  15337
 
 from utils import IdDict
-from data_prop import Quantity,DataProp
+from data_prop import Quantity, DataProp
 from graph import Graph
 from property_graph import PropertyGraph
 from temporal_property_graph import TemporalPropertyGraph
