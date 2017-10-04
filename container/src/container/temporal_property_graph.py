@@ -22,8 +22,10 @@ edges: temporal edges.
 __license__ = "Cecill-C"
 __revision__ = " $Id$ "
 
-import collections
+from collections import Iterable
+from heapq import heappop, heappush
 
+from interface.graph import InvalidVertex
 from property_graph import *
 
 try:
@@ -34,6 +36,7 @@ except ImportError:
 
 
 def iterable(obj):
+    """ Test if the provided object is iterable."""
     try:
         iter(obj)
         return True
@@ -41,93 +44,178 @@ def iterable(obj):
         return False
 
 
+def use_sub_lineage(graph, mother, daughters, on_ids_source, on_ids_target):
+    """
+
+    Parameters
+    ----------
+    graph
+    mother
+    daughters
+    on_ids_source
+    on_ids_target
+
+    Returns
+    -------
+
+    """
+    found_sub_lineage = False
+    tmp_daughters = []
+    for d in daughters:
+        if iterable(d):
+            found_sub_lineage = True
+            tmp_d = []
+            if "sub_lineage" not in graph.graph_properties():
+                graph.add_graph_property("sub_lineage")
+            for sub_d in d:
+                if iterable(sub_d):
+                    use_sub_lineage(mother, sub_d, on_ids_source,
+                                    on_ids_target)
+                else:
+                    tmp_d.append(on_ids_target[sub_d])
+            tmp_daughters.append(tmp_d)
+        else:
+            tmp_daughters.append(on_ids_target[d])
+    if found_sub_lineage:
+        graph.graph_property("sub_lineage").update(
+            {on_ids_source[mother]: tmp_daughters})
+    return graph
+
+
+def flatten(l):
+    """
+    Flatten everything that's a list!
+
+    Examples
+    --------
+    >>> list(flatten([1,2,3,4]))
+    >>> [1, 2, 3, 4]
+
+    >>> list(flatten([[1,2],[3,4]]))
+    >>> [1, 2, 3, 4]
+
+    >>> list(flatten([[1,[2,3]],4]))
+    >>> [1, 2, 3, 4]
+    """
+    for el in l:
+        if isinstance(el, Iterable) and not isinstance(el, basestring):
+            for sub in flatten(el):
+                yield sub
+        else:
+            yield el
+
+
 # TODO: check the use of edge_property 'old_label', not sure it is necessary
 class TemporalPropertyGraph(PropertyGraph):
     """
-    Extension of PropertyGraph to temporal case, by defining two types of edges,
-    spatial ('s') and temporal ('t').
+    Extension of PropertyGraph to temporal case, by defining:
+      * edge_property 'edge_type': define the two types of edges, spatial ('s')
+        and temporal ('t');
+      * vertex_property 'index' : a time index for each vertex;
 
-    Uses four dictionaries to maintain these properties:
-     * edge_property 'edge_type': define type of edge, ie. spatial or temporal;
-     * edge_property 'old_label': define 'old_label' edge ppty: {eid: (label_i, label_j)}
-     * vertex_property 'old_label' : define the translation dict between the id of the ;
-     * vertex_property 'index' : define the temporal index of each vid;
+    Since appending graphs might create duplicate ids for vertices and edges, we
+    have to relabel them and use two dictionaries (per time-point) to do so:
+      * self._old_to_new_ids[tp][0] = old_to_new_vids;
+      * self._old_to_new_ids[tp][1] = old_to_new_eids.
+
+    To quickly access the number of time points in the TPG, use attribute
+    nb_time_points.
+
     """
     STRUCTURAL = 's'
     TEMPORAL = 't'
 
+    # TODO: check and remove these (should be in TissueGraph):
+    #     * edge_property 'old_label': define 'old_label' edge ppty: {eid: (label_i, label_j)}
+    #     * vertex_property 'old_label' : define the translation dict between the id of the ;
+
     def __init__(self, graph=None, **kwds):
         """
         TemporalPropertyGraph constructor.
-        """
 
-        PropertyGraph.__init__(self, graph, idgenerator='max', **kwds)
-        if graph is None:
-            # Introduce 'edge_type' ppty: {eid: STRUCTURAL|TEMPORAL}
-            self.add_edge_property('edge_type')
-            # Introduce 'old_label' edge ppty: {eid: (label_i, label_j)}
-            self.add_edge_property('old_label')
-            # Introduce 'old_label' vertex ppty: {vid: label_i}
-            self.add_vertex_property('old_label')
-            # Introduce temporal 'index' vertex ppty: {vid: time_point}
-            self.add_vertex_property('index')
-            # Save number of time point added to the object
-            self.nb_time_points = 0
-            # list of (N_tp) tuples of two dict vertex & edges:
-            # (self._old_to_new_ids[tp][0] = old_to_new_vids; self._old_to_new_ids[tp][1] = old_to_new_eids).
-            self._old_to_new_ids = []
+        Try/except allow to init with 'graph' of type TemporalPropertyGraph
+
+        Extra keyword arguments might be used to init the TPG with list of
+        graphs and mappings.
+        """
+        idgenerator = kwds.get('idgenerator', "max")
+        mappings = kwds.get('mappings', None)
+        time_steps = kwds.get('time_steps', None)
+        check_mapping = kwds.get('check_mapping', False)
+        if isinstance(graph, list):
+            if not isinstance(mappings, list):
+                # Accept to transform 'mappings' if is a dict and 'graph'
+                # contains two PropertyGraph
+                try:
+                    assert isinstance(mappings, dict)
+                    assert len(graph) == 2
+                    assert isinstance(graph[0], PropertyGraph)
+                    assert isinstance(graph[1], PropertyGraph)
+                except:
+                    raise TypeError("Got a list of graphs, but could not understand 'mappings': {}!".format(type(mappings)))
+                else:
+                    mappings = [mappings]
+            TemporalPropertyGraph.__init__(self, None, **kwds)
+            self.temporal_extension(graph, mappings, time_steps, check_mapping)
         else:
-            try:
-                self._edge_property['edge_type'] = graph._edge_property[
-                    'edge_type']
-            except KeyError:
+            PropertyGraph.__init__(self, graph, idgenerator=idgenerator, **kwds)
+            if graph is None:
                 # Introduce 'edge_type' ppty: {eid: STRUCTURAL|TEMPORAL}
                 self.add_edge_property('edge_type')
-            try:
-                self._edge_property['old_label'] = self._edge_property[
-                    'old_label']
-            except KeyError:
-                # Introduce 'old_label' edge ppty: {eid: (label_i, lable_j)}
-                self.add_edge_property('old_label')
-            try:
-                self._vertex_property['old_label'] = self._vertex_property[
-                    'old_label']
-            except KeyError:
-                # Introduce 'old_label' vertex ppty: {vid: (label_i, lable_j)}
-                self.add_vertex_property('old_label')
-            try:
-                self._vertex_property['index'] = self._vertex_property['index']
-            except KeyError:
                 # Introduce temporal 'index' vertex ppty: {vid: time_point}
                 self.add_vertex_property('index')
-            try:
-                self.nb_time_points = getattr(graph, 'nb_time_points')
-            except AttributeError:
-                # Save number of time point added to the object
+                # Save number of time point added to the object:
                 self.nb_time_points = 0
-            try:
-                self._old_to_new_ids = getattr(graph, '_old_to_new_ids')
-            except AttributeError:
-                # list of (N_tp) tuples of two dict vertex & edges:
-                # (self._old_to_new_ids[tp][0] = old_to_new_vids; self._old_to_new_ids[tp][1] = old_to_new_eids).
-                self._old_to_new_ids = []
+                # Save relabelling dictionaries:
+                self._old_to_new_vids = []
+                self._old_to_new_eids = []
+            elif isinstance(graph, TemporalPropertyGraph):
+                # Introduce 'edge_type' ppty: {eid: STRUCTURAL|TEMPORAL}
+                try:
+                    self._edge_property['edge_type'] = graph._edge_property[
+                        'edge_type']
+                except KeyError or AttributeError:
+                    self.add_edge_property('edge_type')
+                # Introduce temporal 'index' vertex ppty: {vid: time_point}
+                try:
+                    self._vertex_property['index'] = self._vertex_property['index']
+                except KeyError or AttributeError:
+                    self.add_vertex_property('index')
+                # Save number of time point added to the object:
+                try:
+                    self.nb_time_points = getattr(graph, 'nb_time_points')
+                except AttributeError:
+                    self.nb_time_points = 0
+                # Save relabelling dictionaries:
+                try:
+                    self._old_to_new_vids = getattr(graph, '_old_to_new_vids')
+                    self._old_to_new_eids = getattr(graph, '_old_to_new_eids')
+                except AttributeError:
+                    self._old_to_new_vids = []
+                    self._old_to_new_eids = []
+            else:
+                err = "Could not understand 'graph' type: {}".format(type(graph))
+                raise TypeError(err)
 
     def __str__(self):
         """
         Format returned instance type informations.
         """
         s = "Object 'TemporalPropertyGraph' containing:"
-        s += "\n  - {} time-points".format(len(self.nb_time_points))
+        s += "\n  - {} time-points".format(self.nb_time_points)
         s += "\n  - {} vertices".format(len(self._vertices))
         s += "\n  - {} edges".format(len(self._edges))
-        s += "\n  - {} vertex properties".format(len(self._vertex_property))
-        s += "\n  - {} edge properties".format(len(self._edge_property))
-        s += "\n  - {} edge properties".format(len(self._graph_property))
+        s += "\n  - {} vertex properties:".format(len(self._vertex_property))
+        s += "\n    {}".format(self._vertex_property.keys())
+        s += "\n  - {} edge properties:".format(len(self._edge_property))
+        s += "\n    {}".format(self._edge_property.keys())
+        s += "\n  - {} graph properties:".format(len(self._graph_property))
+        s += "\n    {}".format(self._graph_property.keys())
         return s
 
     def temporal_extension(self, graphs, mappings, time_steps=None,
-                           disable_lineage_checking=True):
-        # def extend(self, graphs, mappings, time_steps = None, disable_lineage_checking=True):
+                           check_mapping=True):
+        # def extend(self, graphs, mappings, time_steps = None, check_mapping=True):
         """
         Extend the TemporalPropertyGraph with PropertyGraph `graphs` and `mappings`.
         Each graph in the `graphs` list contains :structural edges:.
@@ -141,7 +229,7 @@ class TemporalPropertyGraph(PropertyGraph):
             a list of dictionaries linking the vids of consecutive graphs
         time_steps : list, optional
             absolute acquisition time starting at t=0
-        disable_lineage_checking : bool, optional
+        check_mapping : bool, optional
             if True (default), the lineage is NOT checked before creation, see notes
 
         Notes
@@ -152,24 +240,34 @@ class TemporalPropertyGraph(PropertyGraph):
         * 'lineage checking' make sure a vid can not have two mothers
         """
         # - Usual paranoia (avoid useless computation):
-        assert len(graphs) == len(mappings) + 1
+        # Make sure we have one more graphs than mappings:
+        try:
+            assert len(graphs) == len(mappings) + 1
+        except AssertionError:
+            raise AssertionError("There should be one more graph than mapping!")
+        # If 'time_steps' is not None, check we have as many as 'graphs' and
+        # save them:
         if time_steps is not None:
-            assert len(graphs) == len(time_steps)
+            try:
+                assert len(graphs) == len(time_steps)
+            except AssertionError:
+                err = "There should be the same number of graph and time-steps."
+                raise AssertionError(err)
+            else:
+                self.add_graph_property('time_steps', time_steps)
+
         # - First append a spatial graph (PropertyGraph):
         self.append(graphs[0])
         self.nb_time_points += 1
         # - Now loop over PropertyGraph & mapping (temporal relation between graphs):
         for g, m in zip(graphs[1:], mappings):
-            self.append(g, m, disable_lineage_checking)
+            self.append(g, m, check_mapping)
             self.nb_time_points += 1
-        # - Finally save the first property: 'time_steps'
-        if time_steps is not None:
-            self.add_graph_property('time_steps', time_steps)
 
-        return self._old_to_new_ids
+        return self._old_to_new_vids, self._old_to_new_eids
 
     # TODO: rename to 'append_time_point' ?
-    def append(self, graph, mapping=None, disable_lineage_checking=False):
+    def append(self, graph, mapping=None, check_mapping=True):
         """
         Append a PropertyGraph `graph` to the TemporalPropertyGraph at next time-point
         using temporal relations within `mapping`.
@@ -179,10 +277,10 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         graph : PropertyGraph
             a PropertyGraph to append to the previous one with `mapping`
-        mapping : list, optional
+        mapping : dict, optional
             if None (default) add the `graph` as first PropertyGraph (the TPG should be
             empty), else a dictionaries linking the vids of consecutive graphs
-        disable_lineage_checking : bool, optional
+        check_mapping : bool, optional
             if True (default), the lineage is checked before creation, see notes
 
         Notes
@@ -192,153 +290,119 @@ class TemporalPropertyGraph(PropertyGraph):
         * then `mapping` relate 'graph[t]' vertex-ids to 'graph[t+1]' vertex-ids
         * 'lineage checking' make sure a vid can not have two mothers
         """
-        # Usual paranoia: check the existence of a first graph when trying to link it to a second one!
+        # - Assert exist at least a graph in the object before trying to link it
+        # to a second one:
+        current_tp = self.nb_time_points
         if mapping:
-            assert len(
-                self._old_to_new_ids) >= 1, 'To create temporal edges between two graphs, first add a graph without mapping.'
-        # Get our current index (position) in time using the length of the 'old_to_new_ids' dictionary:
-        current_index = len(self._old_to_new_ids)
-        # Get useful values in shorter variable names:
-        edge_types = self.edge_property('edge_type')
-        old_edge_labels = self.edge_property('old_label')
-        old_vertex_labels = self.vertex_property('old_label')
-        indices = self.vertex_property('index')
+            try:
+                # assert len(self._old_to_new_vids) >= 1
+                assert current_tp >= 1
+            except AssertionError:
+                err = "First add a PropertyGraph without mapping to be able to link it to this one!"
+                raise AssertionError(err)
+            try:
+                assert isinstance(mapping, dict)
+            except AssertionError:
+                err = "The provided mapping is not a dictionary!"
+                raise AssertionError(err)
 
-        # Add and translate the vertex and edge ids of the second graph:
-        relabel_ids = Graph.extend(self, graph)
-        old_to_new_vids, old_to_new_eids = relabel_ids
-        self._old_to_new_ids.append(
-            relabel_ids)  # was put later, here should be good too!
-        # Relabel the edge and vertex property:
+        # - Translate and save the relabelled vertex and "structural edge" ids
+        # from 'graph':
+        old_to_new_vids, old_to_new_eids = Graph.extend(self, graph)
+        self._old_to_new_vids.append(old_to_new_vids)
+        self._old_to_new_eids.append(old_to_new_eids)
+        
+        # - Relabel vertex and "structural edge" properties using translation
+        # dictionaries:
         self._relabel_and_add_vertex_edge_properties(graph, old_to_new_vids,
                                                      old_to_new_eids)
 
-        # Update properties on graph
-        temporalgproperties = self.graph_properties()
-
-        # while on a property graph, graph_property are just dict of dict,
-        # on a temporal property graph, graph_property are dict of list of dict
+        # - Relabel & update properties on graph:
+        g_ppty = self.graph_properties()
+        # while on a property graph, graph_property are just dict,
+        # on a temporal property graph, graph_property are dict of dict
         # to keep the different values for each time point.
         for gname in graph.graph_property_names():
             if gname in [self.metavidtypepropertyname,
                          self.metavidtypepropertyname]:
-                temporalgproperties[gname] = graph.graph_property(gname)
+                g_ppty[gname] = graph.graph_property(gname)
             else:
-                newgproperty = graph._relabel_and_add_graph_property(gname,
-                                                                     old_to_new_vids,
-                                                                     old_to_new_eids)
-                temporalgproperties[gname] = temporalgproperties.get(gname,
-                                                                     []) + [
-                                                 newgproperty]
+                newg_ppty = graph._relabel_and_add_graph_property(gname,
+                                                                  old_to_new_vids,
+                                                                  old_to_new_eids)
+                g_ppty[gname] = g_ppty.get(gname, []) + [newg_ppty]
 
-        # ~ self._old_to_new_ids.append(relabel_ids)
+        # - Define shorter variable names:
+        current_tp = self.nb_time_points
+        e_type_ppty = self.edge_property('edge_type')
+        v_tp_ppty = self.vertex_property('index')
 
-        # set edge_type property for structural edges
+        # - Set 'edge_type' edge property to "structural edges" for added edges:
         for old_eid, eid in old_to_new_eids.iteritems():
-            edge_types[eid] = self.STRUCTURAL
-            old_edge_labels[eid] = old_eid
-
+            e_type_ppty[eid] = self.STRUCTURAL
+        # - Set 'index' vertex property for added vertices:
         for old_vid, vid in old_to_new_vids.iteritems():
-            old_vertex_labels[vid] = old_vid
-            indices[vid] = current_index
-
-        def use_sub_lineage(mother, daughters, on_ids_source, on_ids_target):
-            found_sub_lineage = False
-            tmp_daughters = []
-            for d in daughters:
-                if iterable(d):
-                    found_sub_lineage = True
-                    tmp_d = []
-                    if "sub_lineage" not in self.graph_properties():
-                        self.add_graph_property("sub_lineage")
-                    for sub_d in d:
-                        if iterable(sub_d):
-                            use_sub_lineage(mother, sub_d, on_ids_source,
-                                            on_ids_target)
-                        else:
-                            tmp_d.append(on_ids_target[0][sub_d])
-                    tmp_daughters.append(tmp_d)
-                else:
-                    tmp_daughters.append(on_ids_target[0][d])
-            if found_sub_lineage:
-                self.graph_property("sub_lineage").update(
-                    {on_ids_source[0][mother]: tmp_daughters})
-
-        def flatten(l):
-            """
-            Flatten everything that's a list!
-
-            Examples
-            --------
-            >>> list(flatten([1,2,3,4]))
-            >>> [1, 2, 3, 4]
-
-            >>> list(flatten([[1,2],[3,4]]))
-            >>> [1, 2, 3, 4]
-
-            >>> list(flatten([[1,[2,3]],4]))
-            >>> [1, 2, 3, 4]
-            """
-            for el in l:
-                if isinstance(el, collections.Iterable) and not isinstance(el,
-                                                                           basestring):
-                    for sub in flatten(el):
-                        yield sub
-                else:
-                    yield el
+            v_tp_ppty[vid] = current_tp
 
         if mapping:
-            if disable_lineage_checking:
+            if not check_mapping:
                 print "Lineage checking is disabled!"
-            unused_lineage, no_ancestor, no_all_desc = {}, {}, {}
-            on_ids_source, on_ids_target = self._old_to_new_ids[
-                                           -2:]  # get the last two image2graph dict (translate_ids_Image2Graph @ t_n-1 & t_n)
-            for k, l in mapping.iteritems():
-                l_flat = list(flatten(
-                    l))  # flatten the lineage (i.e. [[1,2],3] -> [1,2,3])
-                if disable_lineage_checking:
-                    for v in l_flat:
+            unused_mapping, no_source, no_all_targets = {}, {}, {}
+            # - Get the last two vid relabelling dict (@ t_n-1 & t_n)
+            on_ids_source, on_ids_target = self._old_to_new_vids[-2:]
+            # - Now use them to add the "temporal edges" defined in 'mapping':
+            for old_id_s, old_id_targets in mapping.iteritems():
+                # - Flatten the lineage (i.e. [[1,2],3] -> [1,2,3])
+                old_id_targets_f = list(flatten(old_id_targets))
+                # - Test the presence of the mapping "source" ('old_id_s'):
+                has_source = old_id_s in on_ids_source
+                # - Test the presence of all mapping "targets" ('old_id_targets'):
+                has_all_targets = sum(
+                    [v in on_ids_target for v in old_id_targets_f]) == len(
+                    old_id_targets_f)
+                if not check_mapping:
+                    for old_id_t in old_id_targets_f:
                         try:
-                            eid = self.add_edge(on_ids_source[0][k],
-                                                on_ids_target[0][v])
-                            edge_types[eid] = self.TEMPORAL
+                            eid = self.add_edge(on_ids_source[old_id_s],
+                                                on_ids_target[old_id_t])
                         except KeyError:
-                            unused_lineage.update({k: v})
-                # Check if the mother cell and ALL daugthers are present in their respective topological graph : WE DON'T WANT TO CREATE A PARTIAL LINEAGE !!!!
-                elif k in on_ids_source[0] and (
-                    sum([v in on_ids_target[0].keys() for v in l_flat]) == len(
-                        l_flat)):
-                    use_sub_lineage(k, l, on_ids_source, on_ids_target)
-                    for v in l_flat:
-                        eid = self.add_edge(on_ids_source[0][k],
-                                            on_ids_target[0][v])
-                        edge_types[eid] = self.TEMPORAL
+                            unused_mapping.update({old_id_s: old_id_t})
+                        else:
+                            e_type_ppty[eid] = self.TEMPORAL
+                # Check if the mother cell and ALL daughters are present in their respective topological graph : WE DON'T WANT TO CREATE A PARTIAL LINEAGE !!!!
+                elif has_source and has_all_targets:
+                    # TODO: move '' to TissueGraph?
+                    # use_sub_lineage(self, old_id_s, old_id_targets, on_ids_source, on_ids_target)
+                    for old_id_t in old_id_targets_f:
+                        eid = self.add_edge(on_ids_source[old_id_s],
+                                            on_ids_target[old_id_t])
+                        e_type_ppty[eid] = self.TEMPORAL
                 else:
-                    unused_lineage.update({k: l})
-                if k not in on_ids_source[0]:
-                    no_ancestor.update({k: l})
-                if not (
-                    sum([v in on_ids_target[0].keys() for v in l_flat]) == len(
-                        l_flat)):
-                    no_all_desc.update({k: l})
-            if unused_lineage != {} and not disable_lineage_checking:
-                print "Detected partial lineage info from t{} to t{} !!".format(
-                    current_index - 1, current_index)
-                print "   - {} lineage infos could not be used...".format(
-                    len(unused_lineage))
-                print "   - this represent {}% ({}/{}) of the initially provided mapping...".format(
-                    round(float(len(unused_lineage)) / len(mapping), 3) * 100,
-                    len(unused_lineage), len(mapping))
-            elif unused_lineage != {}:
-                print "Some lineages were not used, most likely because the cells they were related to have been deleted before topological-graph computation."
-            if no_ancestor != {}:
-                print "   - {} have missing ancestors in their topological graph (at time {}).".format(
-                    len(no_ancestor), current_index - 1)
-            if no_all_desc != {}:
-                print "   - {} have missing descendants in their topological graph (at time {}).".format(
-                    len(no_all_desc), current_index)
+                    unused_mapping.update({old_id_s: old_id_targets})
+                # - If the 
+                if not has_source:
+                    no_source.update({old_id_s: old_id_targets})
+                if not has_all_targets:
+                    no_all_targets.update({old_id_s: old_id_targets})
 
-        return relabel_ids
+            if unused_mapping != {} and check_mapping:
+                print "Detected partial lineage info from t{} to t{} !!".format(
+                    current_tp - 1, current_tp)
+                print "   - {} lineage infos could not be used...".format(
+                    len(unused_mapping))
+                print "   - this represent {}% ({}/{}) of the initially provided mapping...".format(
+                    round(float(len(unused_mapping)) / len(mapping), 3) * 100,
+                    len(unused_mapping), len(mapping))
+            elif unused_mapping != {}:
+                print "Some lineages were not used, most likely because the cells they were related to have been deleted before topological-graph computation."
+            if no_source != {}:
+                print "   - {} have missing ancestors in their topological graph (at time {}).".format(
+                    len(no_source), current_tp - 1)
+            if no_all_targets != {}:
+                print "   - {} have missing descendants in their topological graph (at time {}).".format(
+                    len(no_all_targets), current_tp)
+
+        return old_to_new_vids, old_to_new_eids
 
     def clear(self):
         """
@@ -799,24 +863,33 @@ class TemporalPropertyGraph(PropertyGraph):
             edge_dist_func = edge_dist
 
         n = self.nb_vertices()
-        adj_matrix = np.array(n * [n * [no_edge_val]])
+        if no_edge_val == 0:
+            adj_matrix = np.zeros([n, n])
+        else:
+            adj_matrix = np.ones([n, n]) * no_edge_val
         for edge in self.edges(edge_type=edge_type):
             v1, v2 = self.edge_vertices(edge)
             adj_matrix[v1, v2] = edge_dist_func(self, v1, v2)
-            if not oriented:
+            if oriented:
                 adj_matrix[v2, v1] = edge_dist_func(self, v2, v1)
 
         if reflexive:
-            if not isinstance(reflexive_value, type(lambda m: 1)):
+            if isinstance(reflexive_value, int) or isinstance(reflexive_value,
+                                                              float):
                 reflexive_func = lambda g, x, y: reflexive_value
-            else:
+            elif isinstance(reflexive_value, type(lambda m: 1)):
                 reflexive_func = reflexive_value
+            else:
+                err = "Got wrong type for 'reflexive_value': {}".format(
+                    type(reflexive_value))
+                raise TypeError(err)
             for i in range(n):
                 adj_matrix[i, i] = reflexive_func(self, i, i)
 
         return adj_matrix
 
-    def floyd_warshall(self, edge_type=None, edge_dist=1, oriented=False):
+    def floyd_warshall(self, edge_type=None, edge_dist=1, oriented=False,
+                       reflexive=False, reflexive_value=0):
         """
         Returns an adjacency matrix (distance matrix) using the shortest path between
         vertices of the object.
@@ -831,16 +904,28 @@ class TemporalPropertyGraph(PropertyGraph):
         oriented : bool
             define if the graph is oriented, default : False.
             If True, means i->j != j->i
+        reflexive : bool, optional
+            if True (default is False), the graph is considered reflexive and we
+            will put the cost or the cost function 'reflexive_value' on the
+            diagonal of the adjacency matrix
+        reflexive_value : int|float, optional
+            value used by the cost function on the diagonal of the adjacency
+            matrix, by default 0.
+
+        Returns
+        -------
+        NxN matrix, where N it the number of vids
         """
-        adj_matrix = self.adjacency_matrix(edge_type, edge_dist,
-                                                 float('inf'), oriented)
+        adj_matrix = self.adjacency_matrix(edge_type, edge_dist, float('inf'),
+                                           oriented, reflexive, reflexive_value)
         n = self.nb_vertices()
         for k in range(n):
             for i in range(n):
                 for j in range(n):
                     adj_matrix[i, j] = min(adj_matrix[i, j],
-                                                 adj_matrix[i, k] +
-                                                 adj_matrix[k, j])
+                                           adj_matrix[i, k] + adj_matrix[k, j])
+                    if not reflexive and (i == j):
+                        adj_matrix[i, j] = float('inf')
         return adj_matrix
 
     def vertex_temporal_index(self, vid):
@@ -1114,8 +1199,9 @@ class TemporalPropertyGraph(PropertyGraph):
                 rank = self.nb_time_points - 1
             for vid in vids:
                 neighbs |= (
-                self.ancestors(self.in_neighbors(vid, edge_type), rank - 1) | {
-                vid})
+                    self.ancestors(self.in_neighbors(vid, edge_type),
+                                   rank - 1) | {
+                        vid})
                 if list(neighbs) == self._vertices.keys():
                     return neighbs
         return neighbs
@@ -1602,68 +1688,7 @@ class TemporalPropertyGraph(PropertyGraph):
         tp_color_dict = greedy_color(nxg)
         return tp_color_dict
 
-    # TODO: '[add|extend|remove]_[vertex|edge|graph]_property' is defined in PropertyGraph, add 'time_point' params
-    # TODO: create missing func to override function from PropertyGraph
-
-    # TODO: Rename properties to override function from PropertyGraph
-    def extend_vertex_ppty_from_vid_dict(self, name, vid_dict):
-        """
-        Extend a vertex property in the graph (dictionary) using SpatialImage
-        labels as keys.
-
-        Parameters
-        ----------
-        name : str
-            the name of the vertex property to add
-        vid_dict : dict
-            dictionary {label: label_value} to add
-
-        Note
-        ----
-        if you don't provide the 'mlabel2vertex', you need to give 'time_point'
-        """
-        # TODO: should not exists... uses 'self.extend_vertex_property' from PropertyGraph
-        missing_vertex = list(set(vid_dict.keys()) - set(self.vertices()))
-        if missing_vertex != []:
-            print "The vid-dictionary '{}' contains {} unknown vertices:\n{}".format(
-                name, len(missing_vertex), missing_vertex)
-            vid_dict = dict([(k, v) for k, v in vid_dict.iteritems() if
-                             k in self.vertices()])
-
-        if name not in self.vertex_properties():
-            self.add_vertex_property(name, vid_dict)
-        else:
-            self.vertex_property(name).update(vid_dict)
-        return
-
-    # TODO: Rename properties to override function from PropertyGraph
-    def add_edge_ppty_from_eid_dict(self, name, eid_dict,
-                                    try_erase_first=False):
-        """
-        Add an edge property in the graph using an eid dict {eid: value}.
-
-        Parameters
-        ----------
-        name : str
-            the name of the vertex property to add
-        eid_dict : dict
-            dictionary {eid: ppty_value} to add
-        try_erase_first : bool
-            try to erase the property before adding it
-
-        Note
-        ----
-        Use it when transforming 'eid data' during TissueGraph build-up.
-        """
-        # TODO: should not exists... uses 'self.add_edge_property' from PropertyGraph
-        if name in self.edge_properties() and not try_erase_first:
-            raise ValueError("Existing edge property '{}'".format(name))
-        if try_erase_first:
-            print "You asked to try to erase property '{}'!".format(name)
-            self.remove_edge_property(name)
-
-        self.add_edge_property(name, eid_dict)
-        return
+    # TODO: '[add|extend|remove]_[vertex|edge|graph]_property' is defined in PropertyGraph, add 'time_point' params ?
 
     # TODO: Rename properties to override function from PropertyGraph
     def update_graph_ppty_from_dict(self, name, dictionary):

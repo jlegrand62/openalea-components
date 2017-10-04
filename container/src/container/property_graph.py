@@ -45,7 +45,8 @@ class PropertyGraph(IPropertyGraph, Graph):
     metaeidtypepropertyname = "valueproperty_as_eid"
 
     def __init__(self, graph=None, **kwds):
-        Graph.__init__(self, graph, **kwds)
+        idgenerator = kwds.get('idgenerator', "set")
+        Graph.__init__(self, graph, idgenerator)
         if graph is None:
             self._vertex_property = {}
             self._edge_property = {}

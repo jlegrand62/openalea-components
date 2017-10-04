@@ -23,6 +23,7 @@ __revision__ = " $Id$ "
 
 from heapq import heappop, heappush
 
+import networkx as nx
 import numpy as np
 from interface.graph import IEdgeListGraph
 from interface.graph import IExtendGraph
@@ -493,6 +494,7 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
         "neighbors" list
         """
         return self.in_neighbors(vid) | self.out_neighbors(vid)
+
     neighbors.__doc__ = IVertexListGraph.neighbors.__doc__
 
     def iter_neighbors(self, vid):
@@ -644,18 +646,20 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
 
         Parameters
         ----------
-        edge_dist : int|function, optional
+        edge_dist : int|float|function, optional
             cost function to apply between two edges, default : 1
         no_edge_val : int|float, optional
             cost to put if there is no edge between two vertices, default : 0
         oriented : bool, optional
-            if True (default is False), the graph is considered oriented and we
-            always add an edge j -> i if i -> j exists
+            if False (default), the graph is considered non oriented
+            (ie. edge[i, j] != edge[j, i]) and only the upper part of the
+            symmetric matrix is returned,
+            if True, the graph is considered oriented, ie. edge[i, j] != edge[j, i]
         reflexive : bool, optional
             if True (default is False), the graph is considered reflexive and we
             will put the cost or the cost function 'reflexive_value' on the
             diagonal of the adjacency matrix
-        reflexive_value : int, optional
+        reflexive_value : int|float, optional
             value used by the cost function on the diagonal of the adjacency
             matrix, by default 0.
 
@@ -672,7 +676,11 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
             raise TypeError(err)
 
         n = self.nb_vertices()
-        adj_matrix = np.array(n * [n * [no_edge_val]])
+        # adj_matrix = np.array(n * [n * [no_edge_val]])
+        if no_edge_val == 0:
+            adj_matrix = np.zeros([n, n])
+        else:
+            adj_matrix = np.ones([n, n]) * no_edge_val
         for edge in self.edges():
             v1, v2 = self.edge_vertices(edge)
             adj_matrix[v1, v2] = edge_dist_func(self, v1, v2)
@@ -680,39 +688,56 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
                 adj_matrix[v2, v1] = edge_dist_func(self, v2, v1)
 
         if reflexive:
-            if isinstance(reflexive_value, int) or isinstance(reflexive_value, float):
+            if isinstance(reflexive_value, int) or isinstance(reflexive_value,
+                                                              float):
                 reflexive_func = lambda g, x, y: reflexive_value
             elif isinstance(reflexive_value, type(lambda m: 1)):
                 reflexive_func = reflexive_value
             else:
-                err = "Got wrong type for 'edge_dist': {}".format(type(edge_dist))
+                err = "Got wrong type for 'reflexive_value': {}".format(
+                    type(reflexive_value))
                 raise TypeError(err)
             for i in range(n):
                 adj_matrix[i, i] = reflexive_func(self, i, i)
 
         return adj_matrix
 
-    def floyd_warshall(self, edge_dist=1, oriented=False):
+    def floyd_warshall(self, edge_dist=1, oriented=False, reflexive=False,
+                       reflexive_value=0):
         """
-        Returns an adjacency matrix (distance matrix) using the shortest path between
-        vertices of the object.
+        Returns the pairwise topological distance matrix using the shortest path
+        between vertices of the object.
 
         Parameters
         ----------
         edge_dist : int
             cost function to apply between two edges, default : 1
         oriented : bool
-            define if the graph is oriented, default : False.
-            If True, means i->j != j->i
+            if False (default), the graph is not oriented (edge_ij == edge_ji)
+            and only the upper part of the matrix is returned, else the graph
+            is oriented and every pairwise distance is computed.
+        reflexive : bool, optional
+            if True (default is False), the graph is considered reflexive and we
+            will put the cost or the cost function 'reflexive_value' on the
+            diagonal of the adjacency matrix
+        reflexive_value : int|float, optional
+            value used by the cost function on the diagonal of the adjacency
+            matrix, by default 0.
+
+        Returns
+        -------
+        NxN matrix, where N it the number of vids
         """
-        adj_matrix = self.adjacency_matrix(edge_dist, float('inf'),
-                                                 oriented)
+        adj_matrix = self.adjacency_matrix(edge_dist, float('inf'), oriented,
+                                           reflexive, reflexive_value)
         n = self.nb_vertices()
         for k in range(n):
             for i in range(n):
                 for j in range(n):
                     adj_matrix[i, j] = min(adj_matrix[i, j],
                                            adj_matrix[i, k] + adj_matrix[k, j])
+                    if not reflexive and (i == j):
+                        adj_matrix[i, j] = float('inf')
         return adj_matrix
 
     def neighborhood(self, vid, depth=1):
@@ -963,3 +988,43 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
                     result._edges.add(self._edges[eid], eid)
 
         return result
+
+    def to_networkx(self):
+        """
+        Return a NetworkX Graph object from current object.
+
+        Returns
+        -------
+        a NetworkX graph object (nx.Graph).
+        """
+        nx_graph = nx.Graph()
+        nx_graph.add_nodes_from(self.vertices())
+        nx_graph.add_edges_from(
+            ((self.source(eid), self.target(eid)) for eid in self.edges()))
+
+        return nx_graph
+
+    def from_networkx(self, nx_graph):
+        """
+        Return a Graph from a NetworkX Directed graph 'nx_graph'.
+
+        Parameters
+        ----------
+        graph : networkx.graph
+            a networkx directed graph
+        """
+        # Clear the object:
+        self.clear()
+        # Transform NetworkX graph to "directed graph" if not:
+        if not nx_graph.is_directed():
+            nx_graph = nx_graph.to_directed()
+        # Add vertices:
+        for vid in nx_graph.nodes_iter():
+            self.add_vertex(vid)
+        # Add edges:
+        for source, target in nx_graph.edges_iter():
+            d = nx_graph[source][target]
+            eid = d.get('eid')
+            self.add_edge(source, target, eid)
+
+        return self.__str__()

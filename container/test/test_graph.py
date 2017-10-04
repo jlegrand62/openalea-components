@@ -1,3 +1,4 @@
+import random
 import numpy as np
 from nose import with_setup
 from openalea.container import Graph
@@ -236,6 +237,9 @@ def test_extend():
 # Spatial distance
 #
 # ##########################################################
+
+# TOPOLOGICAL DISTANCES between vids:
+################################################################################
 def create_graph(n_vids, n_eids):
     """
     Create a PropertyGraph with 'n_vids' vertex ids and 'n_eids' edge ids.
@@ -263,6 +267,7 @@ def create_graph(n_vids, n_eids):
 
     return g
 
+
 g = Graph()
 
 n_vids = 10
@@ -283,26 +288,151 @@ def test_topological_distance():
 
 @with_setup(setup_func, teardown_func)
 def test_topological_distance2():
-    topo = g.topological_distance(0, lambda x, y:2)
+    topo = g.topological_distance(0, lambda x, y: 2)
     assert len(topo) == n_vids
     for i in xrange(n_vids):
-        assert topo[i] == i*2
+        assert topo[i] == i * 2
 
 
 @with_setup(setup_func, teardown_func)
 def test_topological_distance3():
-    topo = g.topological_distance(0, max_depth=2)
+    max_depth = 2
+    topo = g.topological_distance(0, max_depth=max_depth)
     assert len(topo) == n_vids
-    for i in xrange(2):
+    for i in xrange(max_depth):
         assert topo[i] == i
-    for i in xrange(3, n_vids):
+    for i in xrange(max_depth + 1, n_vids):
         assert topo[i] == float('inf')
-    topo = g.topological_distance(0, max_depth=2, return_inf=False)
-    for i in xrange(3, n_vids):
+    topo = g.topological_distance(0, max_depth=max_depth, return_inf=False)
+    for i in xrange(max_depth + 1, n_vids):
         assert np.isnan(topo[i])
 
-#TODO: test 'adjacency_matrix'
 
-#TODO: test 'floyd_warshall'
+# ADJACENCY MATRIX between all vertices:
+################################################################################
+edge_dist = 1
+no_edge_val = 0
+reflexive_value = 0.01
 
-#TODO: test 'to_networkx' & 'from_networkx'
+
+@with_setup(setup_func, teardown_func)
+def test_adjacency_matrix_non_oriented_non_reflexive():
+    # init the TEST adjacency matrix
+    if no_edge_val == 0:
+        m = np.zeros([n_vids, n_vids])
+    else:
+        m = np.ones([n_vids, n_vids]) * no_edge_val
+    # create the TEST adjacency matrix
+    for e in g.edges():
+        s, t = g.edge_vertices(e)
+        m[s, t] = edge_dist
+    # get the graph.adjacency_matrix
+    adj = g.adjacency_matrix(edge_dist, no_edge_val, oriented=False,
+                             reflexive=False, reflexive_value=0)
+    assert np.alltrue(adj == m)
+
+
+@with_setup(setup_func, teardown_func)
+def test_adjacency_matrix_oriented_non_reflexive():
+    # init the TEST adjacency matrix
+    if no_edge_val == 0:
+        m = np.zeros([n_vids, n_vids])
+    else:
+        m = np.ones([n_vids, n_vids]) * no_edge_val
+    # create the TEST adjacency matrix
+    for e in g.edges():
+        s, t = g.edge_vertices(e)
+        m[s, t] = m[t, s] = edge_dist
+    # get the graph.adjacency_matrix
+    adj = g.adjacency_matrix(edge_dist, no_edge_val, oriented=True,
+                             reflexive=False, reflexive_value=0)
+    assert np.alltrue(adj == m)
+
+
+@with_setup(setup_func, teardown_func)
+def test_adjacency_matrix_oriented_reflexive():
+    # init the TEST adjacency matrix
+    if no_edge_val == 0:
+        m = np.zeros([n_vids, n_vids])
+    else:
+        m = np.ones([n_vids, n_vids]) * no_edge_val
+    # create the TEST adjacency matrix
+    for e in g.edges():
+        s, t = g.edge_vertices(e)
+        m[s, t] = m[t, s] = edge_dist
+    for i in xrange(n_vids):
+        m[i, i] = reflexive_value
+    # get the graph.adjacency_matrix
+    adj = g.adjacency_matrix(edge_dist, no_edge_val, oriented=True,
+                             reflexive=True, reflexive_value=reflexive_value)
+    assert np.alltrue(adj == m)
+
+
+# FLOYD-WARSHALL DISTANCE MATRIX between all vertices:
+################################################################################
+@with_setup(setup_func, teardown_func)
+def test_floyd_warshall_non_oriented_non_reflexive():
+    m = np.zeros([n_vids, n_vids])
+
+    for t in xrange(n_vids):
+        for s in xrange(n_vids):
+            m[s, t] = t - s
+            m[t, s] = 'inf'
+    for i in xrange(n_vids):
+        m[i, i] = 'inf'
+
+    fw = g.floyd_warshall(edge_dist, oriented=False, reflexive=False,
+                          reflexive_value=0)
+    assert np.alltrue(fw == m)
+    # Add edge between two non-neighbors vertices, assert they are now "close":
+    s, t = 0, 0
+    while abs(t - s) <= 1:
+        s, t = random.sample(range(n_vids), 2)
+    g.add_edge(s, t)
+    fw = g.floyd_warshall(edge_dist, oriented=False, reflexive=False,
+                          reflexive_value=0)
+    assert fw[s, t] == 1
+    assert fw[t, s] == float('inf')
+
+
+@with_setup(setup_func, teardown_func)
+def test_floyd_warshall_oriented_non_reflexive():
+    m = np.zeros([n_vids, n_vids])
+
+    for t in xrange(n_vids):
+        for s in xrange(n_vids):
+            m[s, t] = t - s
+            m[t, s] = t - s
+    for i in xrange(n_vids):
+        m[i, i] = 'inf'
+
+    fw = g.floyd_warshall(edge_dist, oriented=True, reflexive=False,
+                          reflexive_value=0)
+    assert np.alltrue(fw == m)
+    # Add edge between two non-neighbors vertices, assert they are now "close":
+    s, t = 0, 0
+    while abs(t - s) <= 1:
+        s, t = random.sample(range(n_vids), 2)
+    g.add_edge(s, t)
+    fw = g.floyd_warshall(edge_dist, oriented=True, reflexive=False,
+                          reflexive_value=0)
+    assert fw[s, t] == 1
+    assert fw[t, s] == t - s
+
+
+@with_setup(setup_func, teardown_func)
+def test_floyd_warshall_oriented_reflexive():
+    m = np.zeros([n_vids, n_vids])
+
+    for t in xrange(n_vids):
+        for s in xrange(n_vids):
+            m[s, t] = t - s
+            m[t, s] = t - s
+    for i in xrange(n_vids):
+        m[i, i] = reflexive_value
+
+    fw = g.floyd_warshall(edge_dist, oriented=True, reflexive=True,
+                          reflexive_value=reflexive_value)
+    assert np.alltrue(fw == m)
+
+# TODO: test 'to_networkx' & 'from_networkx'
