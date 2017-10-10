@@ -1370,7 +1370,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         """
         Export vertex properties 'ppty2export' to a csv named 'out_fname'.
         Cells are given by row and properties by columns.
-        For lenght-D vectors properties, like barycenters, each D value will be
+        For length-D vectors properties, like barycenters, each D value will be
         outputed in a separate column.
         By default export all properties.
         
@@ -1422,7 +1422,7 @@ class PropertyGraph(IPropertyGraph, Graph):
             csv += str(vid) + ";"
             # Add cell feature values:
             for ppty in ppty2export:
-                # In case of lenght-3 vectors:
+                # In case of length-3 vectors:
                 if ppty in ["barycenter", "barycenter_voxel", "inertia_values_3D"]:
                     if vid in self.vertex_property(ppty):
                         for i in range(3):
