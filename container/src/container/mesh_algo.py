@@ -86,7 +86,7 @@ def triangle_quality (pt1, pt2, pt3) :
 
 
 def is_flip_better (mesh, eid) :
-    """Test wether flipping the edge gain something
+    """Test whether flipping the edge gain something
     in terms of triangles quality.
     
     .. warning:: mesh must be planar with triangle faces only
@@ -97,7 +97,7 @@ def is_flip_better (mesh, eid) :
     
     :Returns Type: bool
     """
-    #test wether edge is between two triangles
+    #test whether edge is between two triangles
     if mesh.nb_regions(eid) != 2 :
         return False
     
@@ -110,7 +110,7 @@ def is_flip_better (mesh, eid) :
     pt1, pt2 = (mesh.position(pid) for pid in seg)
     pta, ptb = (mesh.position(pid) for pid in (lpids - seg) )
     
-    #test wether flipped edge is inside the quadrangle
+    #test whether flipped edge is inside the quadrangle
     if dot(cross(subtract(pt2, pt1), subtract(pta, pt1) ),
            cross(subtract(pt2, pt1), subtract(ptb, pt1) ) ) > 0 :
         return False

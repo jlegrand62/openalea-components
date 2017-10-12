@@ -26,9 +26,10 @@ __revision__ = " $Id$ "
 
 from copy import deepcopy
 
+from interface.graph import IRootedGraph, InvalidVertex
 from interface.tree import ITree, IMutableTree, IEditableTree
-from interface.graph import IRootedGraph, InvalidVertex, InvalidEdge
 from traversal.tree import pre_order, post_order
+
 
 class Tree(IRootedGraph,
            ITree,
@@ -92,7 +93,7 @@ class Tree(IRootedGraph,
 
     def has_vertex(self, vid):
         """
-        Test wether a vertex belong to the graph
+        Test whether a vertex belong to the graph
 
         :param vid: vertex id to test
         :type vid: vid

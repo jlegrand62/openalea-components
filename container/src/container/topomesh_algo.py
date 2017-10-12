@@ -96,7 +96,7 @@ def merge_wisps (mesh, scale, wid1, wid2) :
     return nwid
 
 def is_flip_topo_allowed (mesh, eid) :
-    """Test wether the given edge might be safely flipped.
+    """Test whether the given edge might be safely flipped.
 
     mesh: a topomesh object
     eid: id of the edge to flip
@@ -147,7 +147,7 @@ def flip_edge (mesh, eid) :
     mesh.link(2,fid2,eid14)
 
 def is_collapse_topo_allowed (mesh, eid, protected_edges) :
-    """Test wether collapse of the edge is safe.
+    """Test whether collapse of the edge is safe.
 
     mesh: a topomesh object
     eid: id of the edge to flip
@@ -810,7 +810,7 @@ def border (mesh, scale, wids, outer = False) :
     mesh : a container.topomesh instance
     scale : the scale of wisp elements
     wids : a list of wid
-    outer : a boolean that tells wether or not wisps with only one regions are considered
+    outer : a boolean that tells whether or not wisps with only one regions are considered
     return : a set of wid
     """
     inside_wisps = set(wids)

@@ -73,7 +73,7 @@ def triangle_quality (pt1, pt2, pt3) :
         return hmax * P / 2. / sqrt(3.) / sqrt(S2)
 
 def flip_necessary (mesh, eid, pos) :
-    """Test wether flipping the edge gain something
+    """Test whether flipping the edge gain something
     in terms of triangles quality.
     
     .. warning:: mesh must be planar with triangle faces only
@@ -85,7 +85,7 @@ def flip_necessary (mesh, eid, pos) :
     
     :Returns Type: bool
     """
-    #test wether edge is between two triangles
+    #test whether edge is between two triangles
     if mesh.nb_regions(1,eid) != 2 :
         return False
     
@@ -97,7 +97,7 @@ def flip_necessary (mesh, eid, pos) :
     pt1,pt2 = (pos[pid] for pid in mesh.borders(1,eid) )
     pta,ptb = (pos[pid] for pid in (lpids - set(mesh.borders(1,eid) ) ) )
     
-    #test wether flipped edge is inside the quadrangle
+    #test whether flipped edge is inside the quadrangle
     if dot(cross(subtract(pt2,pt1),subtract(pta,pt1) ),
            cross(subtract(pt2,pt1),subtract(ptb,pt1) ) ) > 0 :
         return False
