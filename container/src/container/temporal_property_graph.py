@@ -445,7 +445,7 @@ class TemporalPropertyGraph(PropertyGraph):
         dictionary {eid_ij: (vid_i, vid_j)}
         """
         v2e = self.vertexpair2edge_map(vids, time_point, edge_type)
-        return dict([(j, i) for i, j in v2e.iteritems()])
+        return {j: i for i, j in v2e.iteritems()}
 
     def in_neighbors(self, vid, edge_type=None):
         """
@@ -1467,11 +1467,11 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Parameters
         ----------
-        time_point : int, optional
+        time_point : int
             returned vids will belong to this temporal index 
         """
-        index = self.vertex_property('index')
-        return [k for k, v in index.iteritems() if v == time_point]
+        return [v for v, i in self._vertex_property['index'].iteritems() if
+                i == time_point]
 
     def vertex_at_time(self, time_point, lineaged=False, fully_lineaged=False,
                        as_ancestor=False, as_descendant=False, lineage_rank=1):
@@ -1503,6 +1503,55 @@ class TemporalPropertyGraph(PropertyGraph):
         else:
             return self._all_vertex_at_time(time_point)
 
+    def vertex_property(self, ppty_name, vids=None, time_point=None, **kwargs):
+        """
+        Get vertex property 'ppty_name', filter with list of 'vids' or
+        'time_point'
+
+        Parameters
+        ----------
+        Parameters
+        ----------
+        ppty_name: str
+            the name of an existing vertex property
+        vids: list
+            filter the list of vids to return
+        time_point : int
+            if None (default), return 'vids' from all time-point, will be
+            filtered by 'vids' if not None, else return 'vids' of given value
+
+        Returns
+        -------
+        a dictionary {vid: vid_ppty_value}
+
+        **kwargs
+        --------
+        lineaged : default=False,
+            returned vids are lineaged over 'lineage_rank'
+        fully_lineaged : default=False,
+            returned vids are fully lineaged as ancestors over 'lineage_rank'
+        as_ancestor : default=False,
+            returned vids are lineaged as ancestors over 'lineage_rank'
+        as_descendant : default=False,
+            returned vids are lineaged as descendants over 'lineage_rank'
+        lineage_rank : default=1,
+            use to change temporal rank when checking for all other kwargs
+        """
+        lineaged = kwargs.get('lineaged', False)
+        fully_lineaged = kwargs.get('fully_lineaged', False)
+        as_ancestor = kwargs.get('as_ancestor', False)
+        as_descendant = kwargs.get('as_descendant', False)
+        lineage_rank = kwargs.get('lineage_rank', 1)
+        vids_tp = self.vertex_at_time(time_point, lineaged, fully_lineaged,
+                                   as_ancestor, as_descendant, lineage_rank)
+        ppty = self._vertex_property[ppty_name]
+        if vids is None:
+            vids = list(set(vids_tp) & set(ppty))
+        else:
+            vids = list(set(vids) & set(vids_tp) & set(ppty))
+        return {k: ppty[k] for k in vids}
+
+
     def vertex_property_at_time(self, vertex_property, time_point,
                                 lineaged=False, fully_lineaged=False,
                                 as_ancestor=False, as_descendant=False,
@@ -1533,7 +1582,7 @@ class TemporalPropertyGraph(PropertyGraph):
         vids = self.vertex_at_time(time_point, lineaged, fully_lineaged,
                                    as_ancestor, as_descendant)
         ppty = self.vertex_property(vertex_property)
-        return dict([(k, ppty[k]) for k in vids if k in ppty])
+        return {k: ppty[k] for k in vids if k in ppty}
 
     def edge_at_time(self, time_point, edge_type=None, vids=None):
         """
@@ -1596,7 +1645,7 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         edges = self.edge_at_time(time_point, edge_type, vids)
         e_ppty = self.edge_property(edge_property)
-        return dict([(eid, e_ppty[eid]) for eid in edges if eid in e_ppty])
+        return {eid: e_ppty[eid] for eid in edges if eid in e_ppty}
 
     def spatial_graph_at_time(self, time_point, vids=None, vtx_ppty=None,
                               edge_ppty=None, graph_ppty=None):

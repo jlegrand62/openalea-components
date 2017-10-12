@@ -712,7 +712,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         v_trans = translator[value_translation]
 
         # translate vid and value
-        return dict([(k_trans(k), v_trans(v)) for k, v in values.iteritems()])
+        return {k_trans(k): v_trans(v) for k, v in values.iteritems()}
 
     def _relabel_and_add_vertex_edge_properties(self, graph, trans_vid, trans_eid):
         """
