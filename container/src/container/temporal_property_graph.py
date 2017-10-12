@@ -499,7 +499,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses all types
 
         Returns
@@ -529,7 +529,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses all types
 
         Returns
@@ -546,7 +546,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses all types
 
         Returns
@@ -575,7 +575,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses all types
 
         Returns
@@ -592,7 +592,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses all types
 
         Returns
@@ -610,7 +610,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses all types
 
         Returns
@@ -627,7 +627,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses all types
 
         Returns
@@ -654,7 +654,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses all types
 
         Returns
@@ -671,7 +671,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses all types
 
         Returns
@@ -698,7 +698,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses
             all types
 
@@ -718,7 +718,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int, optional
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses
             all types
 
@@ -743,7 +743,7 @@ class TemporalPropertyGraph(PropertyGraph):
         ----------
         vid : int
             a vertex id
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses
             all types
 
@@ -765,7 +765,7 @@ class TemporalPropertyGraph(PropertyGraph):
             a vertex id
         depth : int, optional
             the distance at which we detect neighbors
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses
             all types
 
@@ -791,7 +791,7 @@ class TemporalPropertyGraph(PropertyGraph):
             a vertex id
         depth : int
             the distance at which we detect neighbors
-        edge_type : str | set | None, optional
+        edge_type : str|set|None, optional
             edge type or set of edge types to consider, if None (default) uses
             all types
 
@@ -941,7 +941,7 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Parameters
         ----------
-        edge_type : str | set | None
+        edge_type : str|set|None
             edge type or set of edge types to consider, if None (default) uses all types
         edge_dist : int
             cost function to apply between two edges, default : 1

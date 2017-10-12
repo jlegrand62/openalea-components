@@ -224,7 +224,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         ----------
         ppty_name : str
             the name of the property to add
-        vid_dict : dict | None
+        vid_dict : dict|None
             a dictionary with vid as keys, None will add an empty property
 
         Returns
@@ -350,7 +350,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         ----------
         ppty_name : str
             the name of the property to add
-        eid_dict : dict | None
+        eid_dict : dict|None
             a dictionary with eid as keys, None will add an empty property
 
         Returns
@@ -471,7 +471,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         ----------
         ppty_name : str
             the name of the property to add
-        values : Any | None
+        values : Any|None
             any type or object
 
         Returns
@@ -802,7 +802,7 @@ class PropertyGraph(IPropertyGraph, Graph):
 
         Parameters
         ----------
-        graph : Graph | PropertyGraph
+        graph : Graph|PropertyGraph
             the object used to extent the current one.
 
         Returns
@@ -977,7 +977,7 @@ class PropertyGraph(IPropertyGraph, Graph):
 
         Parameters
         ----------
-        s : int | list | set
+        s : int|list|set
             a variable to transform into a set.
 
         Returns
@@ -1230,7 +1230,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         ----------
         domain_name : str
             the name of the domain
-        edge_type : str | set | None
+        edge_type : str|set|None
             edge type or set of edge types to consider, if None (default) uses all types
 
         Note
