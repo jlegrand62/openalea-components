@@ -44,8 +44,8 @@ class PropertyGraph(IPropertyGraph, Graph):
     metavidtypepropertyname = "valueproperty_as_vid"
     metaeidtypepropertyname = "valueproperty_as_eid"
 
-    def __init__(self, graph=None, **kwds):
-        idgenerator = kwds.get('idgenerator', "set")
+    def __init__(self, graph=None, **kwargs):
+        idgenerator = kwargs.get('idgenerator', "set")
         Graph.__init__(self, graph, idgenerator)
         if graph is None:
             self._vertex_property = {}
@@ -59,14 +59,14 @@ class PropertyGraph(IPropertyGraph, Graph):
 
     def __str__(self):
         """
-        Format returned instance type informations.
+        Format returned object information.
         """
-        s = "Object 'PropertyGraph' containing:"
-        s += "\n  - {} vertices".format(len(self._vertices))
-        s += "\n  - {} edges".format(len(self._edges))
-        s += "\n  - {} vertex properties".format(len(self._vertex_property))
-        s += "\n  - {} edge properties".format(len(self._edge_property))
-        s += "\n  - {} edge properties".format(len(self._graph_property))
+        s = "Object 'PropertyGraph' containing:\n"
+        s += "  - {} vertices\n".format(len(self._vertices))
+        s += "  - {} edges\n".format(len(self._edges))
+        s += "  - {} vertex properties\n".format(len(self._vertex_property))
+        s += "  - {} edge properties\n".format(len(self._edge_property))
+        s += "  - {} graph properties\n".format(len(self._graph_property))
         return s
 
     def vertex_property_names(self):
@@ -231,6 +231,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         -------
         Nothing, edit object
         """
+        # TODO: add 'value' param -> assign to all vids!
         # Check 'ppty_name' exists:
         if ppty_name in self._vertex_property:
             raise PropertyError("Property %s is already defined on vertices"
@@ -356,6 +357,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         -------
         Nothing, edit object
         """
+        # TODO: add 'value' param -> assign to all eids!
         if ppty_name in self._edge_property:
             raise PropertyError("Property %s is already defined on edges"
                                 % ppty_name)

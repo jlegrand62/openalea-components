@@ -129,88 +129,133 @@ class TemporalPropertyGraph(PropertyGraph):
     #     * edge_property 'old_label': define 'old_label' edge ppty: {eid: (label_i, label_j)}
     #     * vertex_property 'old_label' : define the translation dict between the id of the ;
 
-    def __init__(self, graph=None, **kwds):
+    def __init__(self, graph=None, mappings=None, **kwargs):
         """
         TemporalPropertyGraph constructor.
 
-        Try/except allow to init with 'graph' of type TemporalPropertyGraph
-
+        Try/except allow to init with 'graph' of type TemporalPropertyGraph.
         Extra keyword arguments might be used to init the TPG with list of
         graphs and mappings.
+
+        Parameters
+        ----------
+        graph : None|list(PropertyGraph)
+            if None (default), initialise an empty object, else should be a list
+            of PropertyGraph to be linked by a list of 'mappings'
+        mappings : None|list(dict)
+            if None (default), initialise an empty object, else should be a list
+            of "temporal mapping" (dict), linking vids from different
+            time-points
+
+        Notes
+        -----
+        if 'graph' is not None, the parameters should verify:
+            len(graphs) == len(mappings) + 1
+        kwargs are used only if 'graph' is not None
+
+        **kwargs
+        --------
+        idgenerator : str (default="max")
+            how vertex ids are generated during 'Graph' construction
+        time_steps : list (default=None)
+            list of time values indicating temporal distance from time-point 0
+            (eg. [0, 5, 10, 15])
+        time_unit : str (default='h', ie. hours)
+            unit of 'time_steps'
+        check_mapping : bool (default=False)
+            if True, check the descendants vertices have only one ancestor, else
+            do not check
         """
-        idgenerator = kwds.get('idgenerator', "max")
-        mappings = kwds.get('mappings', None)
-        time_steps = kwds.get('time_steps', None)
-        check_mapping = kwds.get('check_mapping', False)
-        if isinstance(graph, list):
-            if not isinstance(mappings, list):
-                # Accept to transform 'mappings' if is a dict and 'graph'
-                # contains two PropertyGraph
-                try:
-                    assert isinstance(mappings, dict)
-                    assert len(graph) == 2
-                    assert isinstance(graph[0], PropertyGraph)
-                    assert isinstance(graph[1], PropertyGraph)
-                except:
-                    raise TypeError("Got a list of graphs, but could not understand 'mappings': {}!".format(type(mappings)))
-                else:
-                    mappings = [mappings]
-            TemporalPropertyGraph.__init__(self, None, **kwds)
-            self.temporal_extension(graph, mappings, time_steps, check_mapping)
-        else:
-            PropertyGraph.__init__(self, graph, idgenerator=idgenerator, **kwds)
-            if graph is None:
-                # Introduce 'edge_type' ppty: {eid: STRUCTURAL|TEMPORAL}
+        idgenerator = kwargs.get('idgenerator', "max")
+        time_steps = kwargs.get('time_steps', None)
+        time_unit = kwargs.get('time_unit', 'h')
+        # TODO: make sure of what 'check_mapping' does really trigger!
+        check_mapping = kwargs.get('check_mapping', False)
+
+        if graph is None:
+            # - EMPTY TemporalPropertyGraph constructor:
+            PropertyGraph.__init__(self, None, **kwargs)
+            # - Introduce 'edge_type' ppty: {eid: STRUCTURAL|TEMPORAL}
+            self.add_edge_property('edge_type')
+            # - Introduce temporal 'index' vertex ppty: {vid: time_point}
+            self.add_vertex_property('index')
+            # - Save number of time point added to the object:
+            self.nb_time_points = 0
+            # - Save relabelling dictionaries:
+            self._old_to_new_vids = []
+            self._old_to_new_eids = []
+        elif isinstance(graph, list):
+            # - Non-empty TemporalPropertyGraph constructor:
+            # Create a TPG from a list of 'PropertyGraph' and 'mappings'
+            # Note: Not checking "len(graphs) == len(mappings) + 1", it is done
+            # by 'self.temporal_extension()'...
+            # - Convert 'mapping' to a list if make sense to do so:
+            if isinstance(mappings, dict) and len(graph) == 2:
+                mappings = [mappings]
+            # - Initialise empty TemporalPropertyGraph
+            TemporalPropertyGraph.__init__(self, None, None,
+                                           idgenerator=idgenerator)
+            # - Add the PropertyGraphs in 'graph' and the temporal mappings
+            self.temporal_extension(graph, mappings, time_steps=time_steps,
+                                    check_mapping=check_mapping)
+            # -- Create a 'units' dictionary to keep the units of each feature:
+            try:
+                self.add_graph_property("units", dict())
+            except:
+                pass
+            # -- And starts with 'time' unit if given with 'time_unit' kwarg:
+            if time_unit is not None:
+                self._graph_property["units"].update({"time": time_unit})
+        elif isinstance(graph, TemporalPropertyGraph):
+            # - Non-empty TemporalPropertyGraph constructor:
+            # Take a TPG as input, useful to "rebuild" an "old" TPG to update
+            # its function definitions!
+            # - Initialise empty TemporalPropertyGraph
+            TemporalPropertyGraph.__init__(self, None, None,
+                                           idgenerator=idgenerator)
+            # - Introduce 'edge_type' ppty: {eid: STRUCTURAL|TEMPORAL}
+            try:
+                self._edge_property['edge_type'] = graph._edge_property[
+                    'edge_type']
+            except KeyError or AttributeError:
                 self.add_edge_property('edge_type')
-                # Introduce temporal 'index' vertex ppty: {vid: time_point}
+            # - Introduce temporal 'index' vertex ppty: {vid: time_point}
+            try:
+                self._vertex_property['index'] = self._vertex_property[
+                    'index']
+            except KeyError or AttributeError:
                 self.add_vertex_property('index')
-                # Save number of time point added to the object:
+            # - Save number of time point added to the object:
+            try:
+                self.nb_time_points = getattr(graph, 'nb_time_points')
+            except AttributeError:
                 self.nb_time_points = 0
-                # Save relabelling dictionaries:
+            # - Save relabelling dictionaries:
+            try:
+                self._old_to_new_vids = getattr(graph, '_old_to_new_vids')
+                self._old_to_new_eids = getattr(graph, '_old_to_new_eids')
+            except AttributeError:
                 self._old_to_new_vids = []
                 self._old_to_new_eids = []
-            elif isinstance(graph, TemporalPropertyGraph):
-                # Introduce 'edge_type' ppty: {eid: STRUCTURAL|TEMPORAL}
-                try:
-                    self._edge_property['edge_type'] = graph._edge_property[
-                        'edge_type']
-                except KeyError or AttributeError:
-                    self.add_edge_property('edge_type')
-                # Introduce temporal 'index' vertex ppty: {vid: time_point}
-                try:
-                    self._vertex_property['index'] = self._vertex_property['index']
-                except KeyError or AttributeError:
-                    self.add_vertex_property('index')
-                # Save number of time point added to the object:
-                try:
-                    self.nb_time_points = getattr(graph, 'nb_time_points')
-                except AttributeError:
-                    self.nb_time_points = 0
-                # Save relabelling dictionaries:
-                try:
-                    self._old_to_new_vids = getattr(graph, '_old_to_new_vids')
-                    self._old_to_new_eids = getattr(graph, '_old_to_new_eids')
-                except AttributeError:
-                    self._old_to_new_vids = []
-                    self._old_to_new_eids = []
-            else:
-                err = "Could not understand 'graph' type: {}".format(type(graph))
-                raise TypeError(err)
+        else:
+            err = "Could not understand 'graph' type: {}".format(
+                type(graph))
+            raise TypeError(err)
 
     def __str__(self):
         """
-        Format returned instance type informations.
+        Format returned object information.
         """
-        s = "Object 'TemporalPropertyGraph' containing:"
-        s += "\n  - {} time-points".format(self.nb_time_points)
-        s += "\n  - {} vertices".format(len(self._vertices))
-        s += "\n  - {} edges".format(len(self._edges))
-        s += "\n  - {} vertex properties:".format(len(self._vertex_property))
-        s += "\n    {}".format(self._vertex_property.keys())
-        s += "\n  - {} edge properties:".format(len(self._edge_property))
-        s += "\n    {}".format(self._edge_property.keys())
-        s += "\n  - {} graph properties:".format(len(self._graph_property))
-        s += "\n    {}".format(self._graph_property.keys())
+        s = "Object 'TemporalPropertyGraph' containing:\n"
+        s += "  - {} time-points\n".format(self.nb_time_points)
+        s += "  - {} vertices\n".format(len(self._vertices))
+        s += "  - {} edges\n".format(len(self._edges))
+        s += "  - {} vertex properties:\n".format(len(self._vertex_property))
+        s += "    {}\n".format(self._vertex_property.keys())
+        s += "  - {} edge properties:\n".format(len(self._edge_property))
+        s += "    {}\n".format(self._edge_property.keys())
+        s += "  - {} graph properties:\n".format(len(self._graph_property))
+        s += "    {}\n".format(self._graph_property.keys())
         return s
 
     def temporal_extension(self, graphs, mappings, time_steps=None,
@@ -311,7 +356,7 @@ class TemporalPropertyGraph(PropertyGraph):
         old_to_new_vids, old_to_new_eids = Graph.extend(self, graph)
         self._old_to_new_vids.append(old_to_new_vids)
         self._old_to_new_eids.append(old_to_new_eids)
-        
+
         # - Relabel vertex and "structural edge" properties using translation
         # dictionaries:
         self._relabel_and_add_vertex_edge_properties(graph, old_to_new_vids,
@@ -332,17 +377,16 @@ class TemporalPropertyGraph(PropertyGraph):
                                                                   old_to_new_eids)
                 g_ppty[gname] = g_ppty.get(gname, []) + [newg_ppty]
 
-        # - Define shorter variable names:
-        current_tp = self.nb_time_points
-        e_type_ppty = self.edge_property('edge_type')
-        v_tp_ppty = self.vertex_property('index')
-
         # - Set 'edge_type' edge property to "structural edges" for added edges:
+        e_type_ppty = {}
         for old_eid, eid in old_to_new_eids.iteritems():
             e_type_ppty[eid] = self.STRUCTURAL
+        self.extend_edge_property('edge_type', e_type_ppty)
         # - Set 'index' vertex property for added vertices:
+        v_tp_ppty = {}
         for old_vid, vid in old_to_new_vids.iteritems():
-            v_tp_ppty[vid] = current_tp
+            v_tp_ppty[vid] = self.nb_time_points
+        self.extend_vertex_property('index', v_tp_ppty)
 
         if mapping:
             if not check_mapping:
@@ -1543,14 +1587,13 @@ class TemporalPropertyGraph(PropertyGraph):
         as_descendant = kwargs.get('as_descendant', False)
         lineage_rank = kwargs.get('lineage_rank', 1)
         vids_tp = self.vertex_at_time(time_point, lineaged, fully_lineaged,
-                                   as_ancestor, as_descendant, lineage_rank)
+                                      as_ancestor, as_descendant, lineage_rank)
         ppty = self._vertex_property[ppty_name]
         if vids is None:
             vids = list(set(vids_tp) & set(ppty))
         else:
             vids = list(set(vids) & set(vids_tp) & set(ppty))
         return {k: ppty[k] for k in vids}
-
 
     def vertex_property_at_time(self, vertex_property, time_point,
                                 lineaged=False, fully_lineaged=False,

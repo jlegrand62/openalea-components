@@ -23,8 +23,9 @@ __license__= "Cecill-C"
 __revision__=" $Id$ "
 
 from math import sqrt
+
 from topomesh import Topomesh
-from topomesh_algo import topo_triangulate_polygon,ordered_pids,flip_edge
+from topomesh_algo import topo_triangulate_polygon, ordered_pids, flip_edge
 
 try :
     from numpy import subtract,cross,dot
@@ -122,7 +123,7 @@ def triangulate_polygon (pids, pos) :
     """Sort pids in tuples of 3 points
     
     .. seealso:: Compared to `topo_triangulate_polygon`, this function will use
-                 geometrical informations to produce nice triangles
+                 geometrical information to produce nice triangles
     :Parameters:
      - `pids` (list of pid) - ordered list of points that form a closed polygon
      - `pos` (dict of (pid|Vector) ) - position of points in the mesh.
