@@ -171,6 +171,7 @@ class TemporalPropertyGraph(PropertyGraph):
         time_unit = kwargs.get('time_unit', 'h')
         # TODO: make sure of what 'check_mapping' does really trigger!
         check_mapping = kwargs.get('check_mapping', False)
+        verbose = kwargs.get('verbose', True)
 
         if graph is None:
             # - EMPTY TemporalPropertyGraph constructor:
@@ -197,7 +198,8 @@ class TemporalPropertyGraph(PropertyGraph):
                                            idgenerator=idgenerator)
             # - Add the PropertyGraphs in 'graph' and the temporal mappings
             self.temporal_extension(graph, mappings, time_steps=time_steps,
-                                    check_mapping=check_mapping)
+                                    check_mapping=check_mapping,
+                                    verbose=True)
             # -- Create a 'units' dictionary to keep the units of each feature:
             try:
                 self.add_graph_property("units", dict())
@@ -259,7 +261,7 @@ class TemporalPropertyGraph(PropertyGraph):
         return s
 
     def temporal_extension(self, graphs, mappings, time_steps=None,
-                           check_mapping=True):
+                           check_mapping=True, verbose=False):
         # def extend(self, graphs, mappings, time_steps = None, check_mapping=True):
         """
         Extend the TemporalPropertyGraph with PropertyGraph `graphs` and `mappings`.
@@ -306,13 +308,13 @@ class TemporalPropertyGraph(PropertyGraph):
         self.nb_time_points += 1
         # - Now loop over PropertyGraph & mapping (temporal relation between graphs):
         for g, m in zip(graphs[1:], mappings):
-            self.append(g, m, check_mapping)
+            self.append(g, m, check_mapping, verbose)
             self.nb_time_points += 1
 
         return self._old_to_new_vids, self._old_to_new_eids
 
     # TODO: rename to 'append_time_point' ?
-    def append(self, graph, mapping=None, check_mapping=True):
+    def append(self, graph, mapping=None, check_mapping=True, verbose=False):
         """
         Append a PropertyGraph `graph` to the TemporalPropertyGraph at next time-point
         using temporal relations within `mapping`.
@@ -343,12 +345,12 @@ class TemporalPropertyGraph(PropertyGraph):
                 # assert len(self._old_to_new_vids) >= 1
                 assert current_tp >= 1
             except AssertionError:
-                err = "First add a PropertyGraph without mapping to be able to link it to this one!"
+                err = "Start by adding a 'PropertyGraph' without mapping!"
                 raise AssertionError(err)
             try:
                 assert isinstance(mapping, dict)
             except AssertionError:
-                err = "The provided mapping is not a dictionary!"
+                err = "The provided 'mapping' is not a dictionary!"
                 raise AssertionError(err)
 
         # - Translate and save the relabelled vertex and "structural edge" ids
@@ -359,23 +361,10 @@ class TemporalPropertyGraph(PropertyGraph):
 
         # - Relabel vertex and "structural edge" properties using translation
         # dictionaries:
-        self._relabel_and_add_vertex_edge_properties(graph, old_to_new_vids,
-                                                     old_to_new_eids)
-
-        # - Relabel & update properties on graph:
-        g_ppty = self.graph_properties()
-        # while on a property graph, graph_property are just dict,
-        # on a temporal property graph, graph_property are dict of dict
-        # to keep the different values for each time point.
-        for gname in graph.graph_property_names():
-            if gname in [self.metavidtypepropertyname,
-                         self.metavidtypepropertyname]:
-                g_ppty[gname] = graph.graph_property(gname)
-            else:
-                newg_ppty = graph._relabel_and_add_graph_property(gname,
-                                                                  old_to_new_vids,
-                                                                  old_to_new_eids)
-                g_ppty[gname] = g_ppty.get(gname, []) + [newg_ppty]
+        self._relabel_and_add_vertex_properties(graph, old_to_new_vids, verbose)
+        self._relabel_and_add_edge_properties(graph, old_to_new_eids, verbose)
+        self._relabel_and_add_graph_properties(graph, old_to_new_vids,
+                                               old_to_new_eids, verbose)
 
         # - Set 'edge_type' edge property to "structural edges" for added edges:
         e_type_ppty = {}
@@ -495,6 +484,7 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         Return the list of "in vertices" for vertex 'vid'.
 
+
         Parameters
         ----------
         vid : int
@@ -506,19 +496,24 @@ class TemporalPropertyGraph(PropertyGraph):
         -------
         neighbors_set: the set of parent vertices of vertex 'vid'
         """
-
         if vid not in self.vertices():
             raise InvalidVertex(vid)
 
         s = self.source
-        vids = self._vertices
+        in_edges = self._vertices[vid][0]
         if edge_type is None:
-            neighbors_set = set([s(eid) for eid in self._vertices[vid][0]])
+            neighbors_set = {s(eid) for eid in in_edges}
         else:
-            edge_type = self.__to_set(edge_type)
+            edge_type = self._to_set(edge_type)
             e_type = self._edge_property['edge_type']
-            neighbors_set = set(
-                [s(eid) for eid in vids[vid][0] if e_type[eid] in edge_type])
+            neighbors_set = set()
+            for eid in in_edges:
+                try:
+                    if e_type[eid] in edge_type:
+                        neighbors_set.update(s(eid))
+                except KeyError:  # 'e_type' might not have a key 'eid'
+                    pass
+
         return neighbors_set
 
     def iter_in_neighbors(self, vid, edge_type=None):
@@ -556,15 +551,21 @@ class TemporalPropertyGraph(PropertyGraph):
         if vid not in self:
             raise InvalidVertex(vid)
 
+        t = self.target
+        out_edges = self._vertices[vid][1]
         if edge_type is None:
-            neighbors_set = set(
-                [self.target(eid) for eid in self._vertices[vid][1]])
+            neighbors_set = {t(eid) for eid in out_edges}
         else:
-            edge_type = self.__to_set(edge_type)
-            edge_type_property = self._edge_property['edge_type']
-            neighbors_set = set(
-                [self.target(eid) for eid in self._vertices[vid][1] if
-                 edge_type_property[eid] in edge_type])
+            edge_type = self._to_set(edge_type)
+            e_type = self._edge_property['edge_type']
+            neighbors_set = set()
+            for eid in out_edges:
+                try:
+                    if e_type[eid] in edge_type:
+                        neighbors_set.update(t(eid))
+                except KeyError:  # 'e_type' might not have a key 'eid'
+                    pass
+
         return neighbors_set
 
     def iter_out_neighbors(self, vid, edge_type=None):
@@ -637,13 +638,13 @@ class TemporalPropertyGraph(PropertyGraph):
         if vid not in self:
             raise InvalidVertex(vid)
 
+        in_edges = self._vertices[vid][0]
         if not edge_type:
-            edge_list = set([eid for eid in self._vertices[vid][0]])
+            edge_list = in_edges
         else:
-            edge_type = self.__to_set(edge_type)
+            edge_type = self._to_set(edge_type)
             e_ppty = self._edge_property['edge_type']
-            edge_list = set([eid for eid in self._vertices[vid][0] if
-                             e_ppty[eid] in edge_type])
+            edge_list = {eid for eid in in_edges if e_ppty[eid] in edge_type}
         return edge_list
 
     def iter_in_edges(self, vid, edge_type=None):
@@ -681,13 +682,13 @@ class TemporalPropertyGraph(PropertyGraph):
         if vid not in self:
             raise InvalidVertex(vid)
 
+        out_edges = self._vertices[vid][1]
         if edge_type is None:
-            edge_list = set([eid for eid in self._vertices[vid][1]])
+            edge_list = out_edges
         else:
-            edge_type = self.__to_set(edge_type)
+            edge_type = self._to_set(edge_type)
             e_ppty = self._edge_property['edge_type']
-            edge_list = set([eid for eid in self._vertices[vid][1] if
-                             e_ppty[eid] in edge_type])
+            edge_list = {eid for eid in out_edges if e_ppty[eid] in edge_type}
         return edge_list
 
     def iter_out_edges(self, vid, edge_type=None):
@@ -732,6 +733,7 @@ class TemporalPropertyGraph(PropertyGraph):
                             self.edge_property('edge_type')[eid] == edge_type])
             else:
                 return set([eid for eid in self._edges.keys()])
+
         return self.out_edges(vid, edge_type) | self.in_edges(vid, edge_type)
 
     def iter_edges(self, vid, edge_type=None):
@@ -1111,16 +1113,15 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         return iter(self.sibling(vid))
 
-    # TODO: use 'vid' instead of 'vids'...
-    def descendants(self, vids, rank=None):
+    def descendants(self, vid, rank=None):
         """
-        Return the 0, 1, ..., nth descendants of the vertex 'vids'.
-        This set contains 'vids' its/their descendants at 'rank' and also all other
+        Return the 0, 1, ..., nth descendants of the vertex 'vid'.
+        This set contains 'vid' its/their descendants at 'rank' and also all other
         vertex ids in between.
 
         Parameters
         ----------
-        vids : int|list|set
+        vid : int|list|set
             ids of the vertex to use
         rank : int|None, optional
             if None (default) returns all descendant up to the last time-point,
@@ -1128,36 +1129,32 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        descendant_set: the set of the 0, 1, ..., nth descendants of 'vids'
+        descendant_set: the set of the 0, 1, ..., nth descendants of 'vid'
         """
-        edge_type = 't'
         neighbs = set()
-        vids = self.__to_set(vids)
-        # If temporal distance is null, returns 'vids'
+        vid = self._to_set(vid)
+        # If temporal distance is null, returns 'vid'
         if rank == 0:
-            return vids
+            return vid
         # If temporal distance is one, use 'children'
         # TODO: use 'self.children()'
         elif rank == 1:
-            for vid in vids:
-                neighbs |= (self.out_neighbors(vid, edge_type) | {vid})
+            for v in vid:
+                neighbs |= (self.children(v) | {v})
             return neighbs
-        # Else
+        # Else call the function upon itself for the inferior rank:
         else:
             if rank is None:
                 rank = self.nb_time_points - 1
-            for vid in vids:
-                neighbs |= (self.descendants(self.out_neighbors(vid, edge_type),
-                                             rank - 1) | {vid})
-                if list(neighbs) == self._vertices.keys():
-                    return neighbs
-        return neighbs
+            for v in vid:
+                neighbs |= (self.descendants(self.children(v), rank - 1) | {v})
+            return neighbs
 
     # TODO: use 'vid' instead of 'vids'...
-    def iter_descendants(self, vids, rank=None):
+    def iter_descendants(self, vid, rank=None):
         """
-        Return the 0, 1, ..., nth descendants of the vertex 'vids'.
-        This set contains 'vids' its/their descendants at 'rank' and also all other
+        Return the 0, 1, ..., nth descendants of the vertex 'vid'.
+        This set contains 'vid' its/their descendants at 'rank' and also all other
         vertex ids in between.
 
         Parameters
@@ -1172,10 +1169,9 @@ class TemporalPropertyGraph(PropertyGraph):
         -------
         iterator: an iterator on the set of the 0, 1, ..., nth descendants of 'vid'
         """
-        return iter(self.descendants(vids, rank))
+        return iter(self.descendants(vid, rank))
 
-    # TODO: use 'vid' instead of 'vids'...
-    def rank_descendants(self, vids, rank=1):
+    def rank_descendants(self, vid, rank=1):
         """
         Return the descendants of the vertex vid only at a given rank.
 
@@ -1191,11 +1187,10 @@ class TemporalPropertyGraph(PropertyGraph):
         -------
         descendant_list: the set of the rank-descendant of vid or a list of set
         """
-        if isinstance(vids, list):
-            return [self.rank_descendants(v, rank) for v in vids]
+        if isinstance(vid, list):
+            return [self.rank_descendants(v, rank) for v in vid]
         else:
-            return self.descendants(vids, rank) - self.descendants(vids,
-                                                                   rank - 1)
+            return self.descendants(vid, rank) - self.descendants(vid, rank - 1)
 
     def has_descendants(self, vid, rank=1):
         """
@@ -1210,11 +1205,10 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         return self.rank_descendants(vid, rank) != set()
 
-    # TODO: use 'vid' instead of 'vids'...
-    def ancestors(self, vids, rank=None):
+    def ancestors(self, vid, rank=None):
         """
-        Return the 0, 1, ..., nth ancestors of the vertex 'vids'.
-        This set contains 'vids' its/their ancestors at 'rank' and also all other
+        Return the 0, 1, ..., nth ancestors of the vertex 'vid'.
+        This set contains 'vid' its/their ancestors at 'rank' and also all other
         vertex ids in between.
 
         Parameters
@@ -1229,29 +1223,39 @@ class TemporalPropertyGraph(PropertyGraph):
         -------
         ancestors_set: the set of the 0, 1, ..., nth ancestors of vertex 'vids'
         """
-        edge_type = 't'
         neighbs = set()
-        vids = self.__to_set(vids)
+        vid = self._to_set(vid)
         if rank == 0:
-            return vids
+            return vid
         elif rank == 1:
-            for vid in vids:
-                neighbs |= (self.in_neighbors(vid, edge_type) | {vid})
+            for v in vid:
+                neighbs |= (self.parent(v) | {v})
             return neighbs
         else:
             if rank is None:
                 rank = self.nb_time_points - 1
-            for vid in vids:
-                neighbs |= (
-                    self.ancestors(self.in_neighbors(vid, edge_type),
-                                   rank - 1) | {
-                        vid})
-                if list(neighbs) == self._vertices.keys():
-                    return neighbs
-        return neighbs
+            for v in vid:
+                neighbs |= (self.ancestors(self.parent(v), rank - 1) | {v})
+            return neighbs
 
-    # TODO: use 'vid' instead of 'vids'...
-    def iter_ancestors(self, vids, rank):
+    def list_ancestors(self, rank=1):
+        """
+        Return a list of all "ancestors" vertices, ie. those with descendants
+        at given 'rank'.
+
+        Parameters
+        ----------
+        rank : int
+            temporal distance to consider when searching for vertices with
+            descendants
+
+        Returns
+        -------
+        list
+        """
+        return self.ancestors(self._vertices, rank)
+
+    def iter_ancestors(self, vid, rank):
         """
         Return an iterator on the 0, 1, ..., nth ancestors of the vertex 'vid'.
 
@@ -1265,9 +1269,10 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        iterator: an iterator on the set of the 0, 1, ..., nth ancestors of the vertex vid
+        iterator: an iterator on the set of the 0, 1, ..., nth ancestors of the
+        vertex vid
         """
-        return iter(self.ancestors(vids, rank))
+        return iter(self.ancestors(vid, rank))
 
     # TODO: use 'vid' instead of 'vids'...
     def rank_ancestors(self, vid, rank=1):
@@ -1497,7 +1502,13 @@ class TemporalPropertyGraph(PropertyGraph):
         else:
             vids_desc = self.vertices()
 
-        if fully_lineaged:
+        if self.nb_time_points == 2:
+            vids = self.vertices()
+            lineaged_vids = set()
+            for v in vids:
+                lineaged_vids |= (self.children(v) | {v})
+            return lineaged_vids
+        elif fully_lineaged:
             vids = self._fully_lineaged_vertex(time_point=None)
         else:
             all_rel = self.exist_all_relative_at_rank
@@ -1540,6 +1551,8 @@ class TemporalPropertyGraph(PropertyGraph):
             usefull if you want to check the lineage for a different rank than 
             the rank-1 temporal neighborhood.
         """
+        if as_ancestor or as_descendant:
+            lineaged = True
         if lineaged or fully_lineaged:
             vids = self.lineaged_vertex(fully_lineaged, as_ancestor,
                                         as_descendant, lineage_rank)

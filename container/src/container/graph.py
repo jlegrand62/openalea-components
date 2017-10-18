@@ -44,7 +44,7 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
       * edges are tuple of source, target
     """
 
-    def __init__(self, graph=None, idgenerator="set"):
+    def __init__(self, graph=None, idgenerator="set", **kwargs):
         """
         Graph object constructor.
 
@@ -57,20 +57,23 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
              if None (default) construct an  empty instance of the object, else
              extend this Graph object with 'graph'.
         """
+        verbose = kwargs.get('verbose', False)
         self._vertices = IdDict(idgenerator=idgenerator)
         self._edges = IdDict(idgenerator=idgenerator)
-        if graph is None:
-            print "Constructing EMPTY Graph object"
-        else:
+        if graph is not None:
             dummy = self.extend(graph)
+        elif verbose:
+            print "Constructing EMPTY Graph object..."
+        else:
+            pass
 
     def __str__(self):
         """
         Format printed instance type information.
         """
-        s = "Object 'Graph' containing:"
-        s += "\n  - {} vertices".format(len(self._vertices))
-        s += "\n  - {} edges".format(len(self._edges))
+        s = "Object 'Graph' containing:\n"
+        s += "  - {} vertices\n".format(len(self._vertices))
+        s += "  - {} edges\n".format(len(self._edges))
         return s
 
     # ##########################################################
@@ -798,7 +801,13 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
         Returns
         -------
         Nothing, add to the object.
+
+        Notes
+        -----
+          * '_vertices' dict is {vid: (in_edge_set, out_edge_set)}
+          * '_edges' dict is {eid: (source_vid, target_vid)}
         """
+        # '_vertices' dict is {vid: (in_edge_set, out_edge_set)}
         return self._vertices.add((set(), set()), vid)
 
     add_vertex.__doc__ = IMutableVertexGraph.add_vertex.__doc__
@@ -865,13 +874,20 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
         Returns
         -------
         the id of the newly created edge
+
+        Notes
+        -----
+          * '_vertices' dict is {vid: (in_edge_set, out_edge_set)}
+          * '_edges' dict is {eid: (source_vid, target_vid)}
         """
         # sid, tid = vid_pair
         if sid not in self:
             raise InvalidVertex(sid)
         if tid not in self:
             raise InvalidVertex(tid)
+        # '_edges' dict is {eid: (source_vid, target_vid)}
         eid = self._edges.add((sid, tid), eid)
+        # '_vertices' dict is {vid: (in_edge_set, out_edge_set)}
         self._vertices[sid][1].add(eid)
         self._vertices[tid][0].add(eid)
         return eid
