@@ -40,8 +40,8 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
             IMutableEdgeGraph, IExtendGraph):
     """
     Directed graph with multiple links in this implementation:
-      * vertices are tuple of edge_in, edge_out
-      * edges are tuple of source, target
+      * self._vertices is a dict {vid:(in_edges_ids, out_edges_ids)}
+      * self._edges  is a dict {eid: (source_vid, target_vid}
     """
 
     def __init__(self, graph=None, idgenerator="set", **kwargs):
@@ -858,7 +858,7 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
     def add_edge(self, sid, tid, eid=None):
         # def add_edge(self, vid_pair, eid=None):
         """
-        Add a directed edge between two vertex (source and target), the edge id 
+        Add a directed edge between two vertex (source and target), the edge id
         may be specified.
 
         Parameters
