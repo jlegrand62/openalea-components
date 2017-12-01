@@ -21,10 +21,11 @@ from nose import with_setup
 from openalea.container import TemporalPropertyGraph
 from openalea.container.temporal_property_graph import flatten
 
-from temporal_property_graph_input import create_random_PG, create_random_TPG
+from temporal_property_graph_input import create_random_PG, create_random_TPG, create_TemporalGraph
 
 
 def test_init_from_PGs():
+    """ Test TPG creation from two (different) random 'PropertyGraph' and mapping."""
     p1, vids1, eids1 = create_random_PG(10, 12)
     p2, vids2, eids2 = create_random_PG(20, 24)
     n_vids1, n_vids2 = len(vids1), len(vids2)
@@ -107,3 +108,28 @@ def test_import_TPG_from_networkx():
 #     nx.draw(nxg)
 #     if display:
 #         plt.show()
+
+def test_temporal_functions():
+    """ Test the temporal functions of TemporalPropertyGraph class."""
+    g = TemporalPropertyGraph()
+    g1, vids1, eids1 = create_random_PG(5, 7)
+    print g1
+    g2, vids2, eids2 = create_random_PG(10, 15)
+    print g2
+    # -- Creating lineage: TEMPORAL edges
+    mapping = {
+        0: [0, 1, 2],
+        1: [3, 4],
+        2: [5],
+        3: [6, 7],
+        4: [8, 9],
+    }
+    # -- Extending TemporalPropertyGraph with structural graph ('PropertyGraph') and linking them with lineage information.
+    g.temporal_extension([g1, g2], [mapping])
+
+    assert len(g.vertex_at_time(0)) == len(vids1)
+    assert len(g.vertex_at_time(1)) == len(vids2)
+    assert len(g.descendants(0))-1 == 3  # descendants contain ancestor id
+    assert len(g.rank_descendants(0)) == 3  # rank_descendants doe NOT contain ancestor id
+    assert len(g.descendants(1)) == len(g.descendants(3)) == len(g.descendants(4)) == 3
+    assert len([eid for eid, t in g.edge_property('edge_type').iteritems() if t=='t']) == len(list(flatten(mapping.values())))

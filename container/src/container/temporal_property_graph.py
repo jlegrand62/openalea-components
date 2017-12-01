@@ -366,12 +366,12 @@ class TemporalPropertyGraph(PropertyGraph):
         self._relabel_and_add_graph_properties(graph, old_to_new_vids,
                                                old_to_new_eids, verbose)
 
-        # - Set 'edge_type' edge property to "structural edges" for added edges:
+        # - Set 'edge_type' edge property to "structural edges" for OLD edges:
         e_type_ppty = {}
         for old_eid, eid in old_to_new_eids.iteritems():
             e_type_ppty[eid] = self.STRUCTURAL
         self.extend_edge_property('edge_type', e_type_ppty)
-        # - Set 'index' vertex property for added vertices:
+        # - Set 'index' vertex property for OLD vertices:
         v_tp_ppty = {}
         for old_vid, vid in old_to_new_vids.iteritems():
             v_tp_ppty[vid] = self.nb_time_points
@@ -380,6 +380,7 @@ class TemporalPropertyGraph(PropertyGraph):
         if mapping:
             if not check_mapping:
                 print "Lineage checking is disabled!"
+            e_type_ppty = {}
             unused_mapping, no_source, no_all_targets = {}, {}, {}
             # - Get the last two vid relabelling dict (@ t_n-1 & t_n)
             on_ids_source, on_ids_target = self._old_to_new_vids[-2:]
@@ -394,6 +395,10 @@ class TemporalPropertyGraph(PropertyGraph):
                     [v in on_ids_target for v in old_id_targets_f]) == len(
                     old_id_targets_f)
                 if not check_mapping:
+                    # If not required to check the mapping:
+                    # try too add an edge using Graph.add_edge()
+                    # if an error (source or target ids) add to unused mapping list
+                    # if succeed, set the
                     for old_id_t in old_id_targets_f:
                         try:
                             eid = self.add_edge(on_ids_source[old_id_s],
@@ -418,6 +423,10 @@ class TemporalPropertyGraph(PropertyGraph):
                 if not has_all_targets:
                     no_all_targets.update({old_id_s: old_id_targets})
 
+            # - Save the 'edge_type' property to 't' for temporal edges:
+            self.extend_edge_property('edge_type', e_type_ppty)
+
+            # - Some info printing about stuff that have gone wrong:
             if unused_mapping != {} and check_mapping:
                 print "Detected partial lineage info from t{} to t{} !!".format(
                     current_tp - 1, current_tp)
@@ -510,7 +519,7 @@ class TemporalPropertyGraph(PropertyGraph):
             for eid in in_edges:
                 try:
                     if e_type[eid] in edge_type:
-                        neighbors_set.update(s(eid))
+                        neighbors_set.update({s(eid)})
                 except KeyError:  # 'e_type' might not have a key 'eid'
                     pass
 
@@ -562,7 +571,7 @@ class TemporalPropertyGraph(PropertyGraph):
             for eid in out_edges:
                 try:
                     if e_type[eid] in edge_type:
-                        neighbors_set.update(t(eid))
+                        neighbors_set.update({t(eid)})
                 except KeyError:  # 'e_type' might not have a key 'eid'
                     pass
 
@@ -1599,8 +1608,11 @@ class TemporalPropertyGraph(PropertyGraph):
         as_ancestor = kwargs.get('as_ancestor', False)
         as_descendant = kwargs.get('as_descendant', False)
         lineage_rank = kwargs.get('lineage_rank', 1)
-        vids_tp = self.vertex_at_time(time_point, lineaged, fully_lineaged,
+        if time_point is not None:
+            vids_tp = self.vertex_at_time(time_point, lineaged, fully_lineaged,
                                       as_ancestor, as_descendant, lineage_rank)
+        else:
+            vids_tp = self.vertices()
         ppty = self._vertex_property[ppty_name]
         if vids is None:
             vids = list(set(vids_tp) & set(ppty))
