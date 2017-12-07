@@ -136,7 +136,7 @@ def create_graph(n_vids, n_eids):
 
 def setup_func():
     """
-    Contruct a PropertyGraph, from scratch.
+    Construct a PropertyGraph, from scratch.
     """
     g = create_graph(n_vids, n_eids)
 
