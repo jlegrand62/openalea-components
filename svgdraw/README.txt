@@ -1,6 +1,6 @@
 ====== CellTissue ======
 
-**Authors** : Jérôme Chopard 
+**Authors** : Jï¿½rï¿½me Chopard 
 
 **Institutes** : INRIA / CIRAD 
 
@@ -14,7 +14,7 @@
 
 === Description ===
 
-CellTissue is a package that provides usefull objects to deal with biological tissue modeling.
+CellTissue is a package that provides useful objects to deal with biological tissue modeling.
 
  
 === Content ===

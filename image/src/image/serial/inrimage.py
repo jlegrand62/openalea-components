@@ -100,7 +100,7 @@ def read_inrimage (filename) :
     prop = _read_header(f)
     prop["Filename"] = filename # Jonathan : 14.05.2012
 
-    #extract usefull infos to read image
+    #extract useful infos to read image
     zdim = int(prop.pop("ZDIM") )
     ydim = int(prop.pop("YDIM") )
     xdim = int(prop.pop("XDIM") )

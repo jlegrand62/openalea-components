@@ -53,19 +53,23 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
 
         Parameters
         ----------
-        graph : None|Graph
+        graph : None|Graph, optional
              if None (default) construct an  empty instance of the object, else
              extend this Graph object with 'graph'.
+        idgenerator : str, optional
+            Control the creation of vertex ids, by default create a 'set', but
+            can also be 'max' or 'list'
         """
         verbose = kwargs.get('verbose', False)
-        self._vertices = IdDict(idgenerator=idgenerator)
-        self._edges = IdDict(idgenerator=idgenerator)
         if graph is not None:
-            dummy = self.extend(graph)
+            # dummy = self.extend(graph)  # unwanted relabelling of  edges and vertices
+            self._vertices = graph._vertices
+            self._edges = graph._edges
         elif verbose:
             print "Constructing EMPTY Graph object..."
         else:
-            pass
+            self._vertices = IdDict(idgenerator=idgenerator)
+            self._edges = IdDict(idgenerator=idgenerator)
 
     def __str__(self):
         """

@@ -15,6 +15,7 @@
 #
 ################################################################################
 """Test creation of TemporalPropertyGraph"""
+import numpy as np
 from random import sample, randint
 
 from nose import with_setup
@@ -25,28 +26,45 @@ from temporal_property_graph_input import create_random_PG, create_random_TPG, c
 
 
 def test_init_from_PGs():
-    """ Test TPG creation from two (different) random 'PropertyGraph' and mapping."""
+    """
+    Test TPG creation from two (different) random 'PropertyGraph' and mapping.
+    """
     p1, vids1, eids1 = create_random_PG(10, 12)
     p2, vids2, eids2 = create_random_PG(20, 24)
     n_vids1, n_vids2 = len(vids1), len(vids2)
     n_eids1, n_eids2 = len(eids1), len(eids2)
-    mapping = dict([(vid, [sample(vids2, randint(1, 2))]) for vid in vids1])
+    mapping = dict([(vid, sample(vids2, randint(1, 2))) for vid in vids1])
     n_temp_eids = len(list(flatten(mapping.values())))
     g = TemporalPropertyGraph(graph=[p1, p2], mappings=[mapping],
                               time_steps=[0, 1])
+    # Tests basic edge & vertex properties definition:
     assert 'edge_type' in g.edge_property_names()
     assert 'index' in g.vertex_property_names()
+    # Test TPG basic attributes definition:
     assert hasattr(g, 'nb_time_points')
     assert hasattr(g, '_old_to_new_vids')
+    # There is two PropertyGraph so there should be two 'g._old_to_new_vids' & 'g._old_to_new_vids'
+    assert hasattr(g, '_old_to_new_vids')
     assert len(g._old_to_new_vids) == 2
-    assert len(list(flatten(g._old_to_new_vids))) == n_vids1 + n_vids2
     assert hasattr(g, '_old_to_new_eids')
     assert len(g._old_to_new_eids) == 2
+    # Test number of vertex and edge in TPG compared to their number from PGs:
+    assert len(list(flatten(g._old_to_new_vids))) == n_vids1 + n_vids2
     assert len(list(flatten(g._old_to_new_eids))) == n_eids1 + n_eids2
     assert len(list(g.vertices())) == n_vids1 + n_vids2
     assert len(g.vertex_property('index')) == n_vids1 + n_vids2
+    # Test number of edges created, including temporal:
     assert len(list(g.edges())) == n_eids1 + n_eids2 + n_temp_eids
     assert len(g.edge_property('edge_type')) == n_eids1 + n_eids2 + n_temp_eids
+    # Test mapping:
+    new2old = [{v: k for k, v in g._old_to_new_vids[i].items()} for i in range(2)]
+    for vid in g.vertex_at_time(0):
+        old_vid = new2old[0][vid]
+        desc_vids = list(g.rank_descendants(vid, 1))
+        old_desc_vids = [new2old[1][v] for v in desc_vids]
+        assert np.all([desc in old_desc_vids for desc in mapping[old_vid]])
+        assert np.all([desc in mapping[old_vid] for desc in old_desc_vids])
+
 
 
 n_vids = 20

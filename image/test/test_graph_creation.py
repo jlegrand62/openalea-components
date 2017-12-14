@@ -33,7 +33,7 @@ def test_graph_from_simple_image(visual = False):
                   [1, 6, 5, 7, 3, 3],
                   [2, 2, 1, 7, 3, 3],
                   [1, 1, 1, 4, 1, 1]])
-    borders = SpatialImageAnalysis(im).cells_in_image_margins()
+    borders = SpatialImageAnalysis(im).labels_at_stack_margins()
     print '**', SpatialImageAnalysis(im).boundingbox(real=False)
     #~ print borders
     #~ print np.unique(im)
