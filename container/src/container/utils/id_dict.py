@@ -14,63 +14,67 @@
 #       VPlants WebSite : https://gforge.inria.fr/projects/vplants/
 #
 
-__doc__="""
-This module provide a dictionnary that create keys when needed
+__doc__ = """
+This module provide a dictionary that create keys when needed
 """
 
-__license__= "Cecill-C"
-__revision__=" $Id$ "
+__license__ = "Cecill-C"
+__revision__ = " $Id$ "
 
-from id_generator import IdMaxGenerator,IdSetGenerator,IdListGenerator
+from id_generator import IdMaxGenerator, IdSetGenerator, IdListGenerator
 
-IdGen = {"max":IdMaxGenerator,
-         "set":IdSetGenerator,
-         "list":IdListGenerator}
+IdGen = {"max": IdMaxGenerator,
+         "set": IdSetGenerator,
+         "list": IdListGenerator}
 
-class IdDict (dict) :
+
+class IdDict(dict):
     """
     store a tuple of (id,elm)
     create an id when needed
     """
-    def __init__ (self, *args, **kwdargs) :
-        try :
+
+    def __init__(self, *args, **kwdargs):
+        try:
             gen_name = kwdargs.pop("idgenerator")
-        except KeyError :
+        except KeyError:
             gen_name = "set"
-        dict.__init__(self,*args,**kwdargs)
-        
+        dict.__init__(self, *args, **kwdargs)
+
         self._gen_id_generator(gen_name)
-        
-        for k,v in self.iteritems() :
+
+        for k, v in self.iteritems():
             self._id_generator.get_id(k)
 
-    def _gen_id_generator(self, gen_name = 'set'):        
-        try :
-            self._id_generator=IdGen[gen_name]()
-        except KeyError :
-            raise UserWarning("the required id generator (%s) is unknown,\navailable generator are %s" % (gen_name,str(IdGen.keys())) )
+    def _gen_id_generator(self, gen_name='set'):
+        try:
+            self._id_generator = IdGen[gen_name]()
+        except KeyError:
+            raise UserWarning(
+                "the required id generator (%s) is unknown,\navailable generator are %s" % (
+                gen_name, str(IdGen.keys())))
 
     def get_generator_type(self):
         for name, typevalue in IdGen.items():
             if type(self._id_generator) == typevalue: return name
-            
-    def add (self, val, key=None) :
-        try :
-            key=self._id_generator.get_id(key)
-            dict.__setitem__(self,key,val)
+
+    def add(self, val, key=None):
+        try:
+            key = self._id_generator.get_id(key)
+            dict.__setitem__(self, key, val)
             return key
-        except IndexError :
+        except IndexError:
             raise KeyError(key)
 
     def __deepcopy__(self, memo):
         from copy import deepcopy
         newval = IdDict(idgenerator=self.get_generator_type())
-        for key,val in self.iteritems():
-            dict.__setitem__(newval,deepcopy(key,memo),deepcopy(val,memo))
-        newval._id_generator = deepcopy(self._id_generator,memo)
+        for key, val in self.iteritems():
+            dict.__setitem__(newval, deepcopy(key, memo), deepcopy(val, memo))
+        newval._id_generator = deepcopy(self._id_generator, memo)
         return newval
 
-    def enable_id_reuse(self, enabled = True):
+    def enable_id_reuse(self, enabled=True):
         self._id_generator.enable_id_reuse(enabled)
 
     def id_reuse_enabled(self):
@@ -81,43 +85,43 @@ class IdDict (dict) :
     #               dict interface
     #
     ################################################
-    def __delitem__ (self, key) :
-        dict.__delitem__(self,key)
+    def __delitem__(self, key):
+        dict.__delitem__(self, key)
         self._id_generator.release_id(key)
 
-    def __setitem__ (self, key, val) :
-        if key not in self :
-            if not hasattr(self,'_id_generator') : self._gen_id_generator()
+    def __setitem__(self, key, val):
+        if key not in self:
+            if not hasattr(self, '_id_generator'): self._gen_id_generator()
             self._id_generator.get_id(key)
-        dict.__setitem__(self,key,val)
+        dict.__setitem__(self, key, val)
 
-    def clear (self) :
+    def clear(self):
         dict.clear(self)
         self._id_generator.clear()
 
-    def copy (self) :
+    def copy(self):
         return IdDict(self)
 
-    def pop (self, key, *args) :
-        try :
-            val=dict.pop(self,key)
+    def pop(self, key, *args):
+        try:
+            val = dict.pop(self, key)
             self._id_generator.release_id(key)
             return val
-        except KeyError :
-            if len(args)>0 :
+        except KeyError:
+            if len(args) > 0:
                 return args[0]
-            else :
+            else:
                 raise
 
-    def popitem (self) :
-        key,val=dict.popitem(self)
+    def popitem(self):
+        key, val = dict.popitem(self)
         self._id_generator.release_id(key)
-        return key,val
+        return key, val
 
-    def setdefault (self, key, *args) :
-        if key not in self :
+    def setdefault(self, key, *args):
+        if key not in self:
             self._id_generator.get_id(key)
-        return dict.setdefault(key,*args)
+        return dict.setdefault(key, *args)
 
-    def update (self, E, **F) :
+    def update(self, E, **F):
         raise NotImplementedError("lapin compris")

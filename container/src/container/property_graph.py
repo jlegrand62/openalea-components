@@ -1158,26 +1158,32 @@ class PropertyGraph(IPropertyGraph, Graph):
         """
         s = self.source
         t = self.target
+        # - Initialize a NetworkX graph:
         graph = nx.Graph()
+        # - Add vertices and edges:
         graph.add_nodes_from(self.vertices())
         graph.add_edges_from(((s(eid), t(eid)) for eid in self.edges()))
 
-        # Add graph, vertex and edge properties
+        # - Add graph, vertex and edge properties
+        # -- Copy 'graph_properties', if any:
         for k, v in self.graph_properties().iteritems():
             graph.graph[k] = v
 
+        # -- Copy 'vertex_properties', if any:
         vp = self._vertex_property
         for prop in vp:
             for vid, value in vp[prop].iteritems():
                 graph.node[vid][prop] = value
 
+        # -- Copy 'edge_properties', if any:
         ep = self._edge_property
+        # --- Starts with the 'eid' values (not defined in NetworkX)
         for eid in self.edges():
-            graph.edge[s(eid)][t(eid)]['eid'] = eid
-
+            graph.edges[(s(eid), t(eid))]['eid'] = eid
+        # --- Get the defined 'edge_properties':
         for prop in ep:
             for eid, value in ep[prop].iteritems():
-                graph.edge[s(eid)][t(eid)][prop] = value
+                graph.edges[(s(eid), t(eid))][prop] = value
 
         return graph
 
@@ -1187,8 +1193,12 @@ class PropertyGraph(IPropertyGraph, Graph):
 
         Parameters
         ----------
-        graph : networkx.graph
+        nx_graph : networkx.graph
             a networkx directed graph
+
+        Returns
+        -------
+        a PropertyGraph.
         """
         self.clear()
         g = self
