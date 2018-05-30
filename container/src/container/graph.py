@@ -40,7 +40,7 @@ class Graph(IGraph, IVertexListGraph, IEdgeListGraph, IMutableVertexGraph,
             IMutableEdgeGraph, IExtendGraph):
     """
     Directed graph with multiple links in this implementation:
-      * self._vertices is a dict {vid:(in_edges_ids, out_edges_ids)}
+      * self._vertices is a dict {vid: (in_edges_ids, out_edges_ids)}
       * self._edges  is a dict {eid: (source_vid, target_vid}
     """
 

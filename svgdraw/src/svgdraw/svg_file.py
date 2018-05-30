@@ -208,7 +208,8 @@ def open_svg (filename, mode='r') :
 		return SVGFileWriter(filename)
 	else :
 		raise UserWarning ("mode %s not recognized" % str(mode))
-def to_xml (svgscene) :
+
+def to_xml (svgscene) :
 	"""Serialize a scene into a string
 	
 	.. seealso: :func:`from_xml`

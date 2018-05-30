@@ -53,7 +53,7 @@ def read_color (color_str) :
 	if color_str == "none" :
 		return None
 	else : #assert haxedecimal definition
-	       #of the color col = #rrggbb
+		   #of the color col = #rrggbb
 		col_str = color_str.lower()[1:]#remove '#'
 		red = int(col_str[:2],16)
 		green = int(col_str[2:4],16)
@@ -144,10 +144,10 @@ class SVGElement (XMLElement) :
 		:Parameters:
 		 - `nodeid` (str) - a unique id for this node
 		 - `parent` (:class:`SVGElement`) - owner of
-		    this node. Default None means that this
-		    element is top level.
+			this node. Default None means that this
+			element is top level.
 		 - `nodename` (str) - name of this particular
-		    type of node
+			type of node
 		"""
 		XMLElement.__init__(self,parent,SVG_ELEMENT_TYPE,nodename,nodeid)
 		
@@ -156,8 +156,8 @@ class SVGElement (XMLElement) :
 		
 		#transformation
 		self._transform = SVGTransform()#transformation matrix expressed
-		                                #in parent frame
-		                                #pos_Rparent = transform * pos_Rlocal
+										#in parent frame
+										#pos_Rparent = transform * pos_Rlocal
 		
 		#filename for abs path
 		self._svgfilename = None
@@ -258,7 +258,7 @@ class SVGElement (XMLElement) :
 		
 		:Parameters:
 		 - `opacity` (float) - 0. means transparent
-		    and 1. opaque
+			and 1. opaque
 		"""
 		self._style["fill-opacity"] = write_float(opacity)
 	
@@ -334,7 +334,7 @@ class SVGElement (XMLElement) :
 		
 		:Parameters:
 		 - `dash_length` (int) - length of dash in pixel
-		    if None, no dashing
+			if None, no dashing
 		 - `void_length` (int) - length of void in pixel
 		"""
 		if dash_length is None :
@@ -357,7 +357,7 @@ class SVGElement (XMLElement) :
 		
 		:Parameters:
 		 - `pos` (float,float) - local
-		    coordinates of a point
+			coordinates of a point
 		
 		:Returns Type: float,float
 		"""

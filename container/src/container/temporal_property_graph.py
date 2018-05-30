@@ -409,7 +409,7 @@ class TemporalPropertyGraph(PropertyGraph):
                             e_type_ppty[eid] = self.TEMPORAL
                 # Check if the mother cell and ALL daughters are present in their respective topological graph : WE DON'T WANT TO CREATE A PARTIAL LINEAGE !!!!
                 elif has_source and has_all_targets:
-                    # TODO: move '' to TissueGraph?
+                    # TODO: move 'check_mapping' to TissueGraph?
                     # use_sub_lineage(self, old_id_s, old_id_targets, on_ids_source, on_ids_target)
                     for old_id_t in old_id_targets_f:
                         eid = self.add_edge(on_ids_source[old_id_s],
@@ -417,9 +417,10 @@ class TemporalPropertyGraph(PropertyGraph):
                         e_type_ppty[eid] = self.TEMPORAL
                 else:
                     unused_mapping.update({old_id_s: old_id_targets})
-                # - If the 
+                # - Save the missing source id (from the source PropertyGraph)
                 if not has_source:
                     no_source.update({old_id_s: old_id_targets})
+                # - Save the missing source id (from the source PropertyGraph)
                 if not has_all_targets:
                     no_all_targets.update({old_id_s: old_id_targets})
 

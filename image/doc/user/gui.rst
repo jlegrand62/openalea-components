@@ -10,18 +10,18 @@ Qt Enabled Shell
 
 .. note ::
 
-    To use graphical tools from the Python command line make sure you have
-    created a QApplication or else they will crash your shell.
+	To use graphical tools from the Python command line make sure you have
+	created a QApplication or else they will crash your shell.
 
-    You can either use IPython_:
+	You can either use IPython_:
 
-    .. code-block:: bash
+	.. code-block:: bash
 
-        user@computer$ ipython --gui=qt # or -q4thread on pre- 0.11 versions of IPython.
+		user@computer$ ipython --gui=qt # or -q4thread on pre- 0.11 versions of IPython.
 
-    or you can manually start a QApplication. In the python command line::
+	or you can manually start a QApplication. In the python command line::
 
-        from PyQt4 import QtGui
+		from PyQt4 import QtGui
 	app = QtGui.QApplication([])
 
 
@@ -31,10 +31,10 @@ Displaying images
 :class:`openalea.image.gui.display` can be used for displaying a matrix as an image.
 
 .. code-block:: python
-    :linenos:
+	:linenos:
 
-    from openalea.image.all import display
-    w1 = display(im, title="An image")
+	from openalea.image.all import display
+	w1 = display(im, title="An image")
 
 
 .. image:: ./images/lena.png
@@ -57,13 +57,13 @@ Point Selection Tool
 It naturally works for 2D but also for 3D by navigating through the slices.
 
 .. code-block:: python
-    :linenos:
+	:linenos:
 
-    from openalea.image.all import point_selection
-    ps1 = point_selection(im1)
+	from openalea.image.all import point_selection
+	ps1 = point_selection(im1)
 
 .. image:: ./images/point_selection.png
-    :width: 35%
+	:width: 35%
 
 
 
@@ -74,25 +74,25 @@ It is possible to load points from a text file and use them. The text file must 
 
 .. code-block:: none
 
-    142.3 124.4 398.1
-    124.2 423.5 642.4
-    234.0 540.1 543.2
-    [...]
+	142.3 124.4 398.1
+	124.2 423.5 642.4
+	234.0 540.1 543.2
+	[...]
 
 .. note:: If the image is 2D, leave out the third column.
 
 Then load the file like this::
 
-    import numpy as np
-    pts1 = np.loadtxt("pts1.txt")
-    ps1.set_points(pts1)
+	import numpy as np
+	pts1 = np.loadtxt("pts1.txt")
+	ps1.set_points(pts1)
 
 
 The points from the PointSelection widget can be obtained with :func:`~openalea.gui.point_selection.PointSelection.get_points`::
 
-    pts1_bis = ps1.get_points()
+	pts1_bis = ps1.get_points()
 
 They can then be saved .txt file with :func:`numpy.savetxt`::
 
-    np.savetxt("pts1_bis.txt", pts1_bis)
+	np.savetxt("pts1_bis.txt", pts1_bis)
 

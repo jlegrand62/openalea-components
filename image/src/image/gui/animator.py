@@ -21,17 +21,17 @@ __license__= "Cecill-C"
 __revision__ = " $Id: __wralea__.py 2245 2010-02-08 17:11:34Z cokelaer $ "
 
 def load_local(mod,modules):
-    modules = modules.split()
-    modules = ''.join(modules).split(',')
+	modules = modules.split()
+	modules = ''.join(modules).split(',')
 
-    for m in modules:
-        globals()[m] = mod.__getattribute__(m)
+	for m in modules:
+		globals()[m] = mod.__getattribute__(m)
 
 from openalea.vpltk.qt import QtGui, QtCore
 load_local(QtCore,'QObject,Qt,SIGNAL,QTimer')
 load_local(QtGui,"""QMainWindow,QLabel,QToolBar,
-                         QAction,QIcon,QSlider,
-                         QPixmap,QSpinBox""")
+						 QAction,QIcon,QSlider,
+						 QPixmap,QSpinBox""")
 
 import icons_rc
 
@@ -70,8 +70,8 @@ class FrameAnimator (QMainWindow) :
 		self._action_close.setShortcut("Escape")
 		self._menu.addAction(self._action_close)
 		QObject.connect(self._action_close,
-		                SIGNAL("triggered(bool)"),
-		                self.close_window)
+						SIGNAL("triggered(bool)"),
+						self.close_window)
 
 		self._menu.addSeparator()
 
@@ -79,8 +79,8 @@ class FrameAnimator (QMainWindow) :
 		self._action_clear = QAction("clear frames",self)
 		self._menu.addAction(self._action_clear)
 		QObject.connect(self._action_clear,
-		                SIGNAL("triggered(bool)"),
-		                self.clear_frames)
+						SIGNAL("triggered(bool)"),
+						self.clear_frames)
 
 		self._menu.addSeparator()
 
@@ -88,8 +88,8 @@ class FrameAnimator (QMainWindow) :
 		self._action_stop =self._action_bar.addAction("stop")
 		self._action_stop.setIcon(QIcon(":image/stop.png") )
 		QObject.connect(self._action_stop,
-		                SIGNAL("triggered(bool)"),
-		                self.stop)
+						SIGNAL("triggered(bool)"),
+						self.stop)
 		self._menu.addAction(self._action_stop)
 
 		self._action_play = QAction("play",self)
@@ -102,16 +102,16 @@ class FrameAnimator (QMainWindow) :
 
 		self._toggle_running = self._action_bar.addAction("toggle")
 		QObject.connect(self._toggle_running,
-		                SIGNAL("triggered(bool)"),
-		                self.toggle_running)
+						SIGNAL("triggered(bool)"),
+						self.toggle_running)
 		self._menu.addAction(self._toggle_running)
 
 		self._action_step = QAction("step",self)
 		self._action_step.setIcon(QIcon(":image/step.png") )
 		self._action_step.setShortcut("Ctrl+Space")
 		QObject.connect(self._action_step,
-		                SIGNAL("triggered(bool)"),
-		                self.step)
+						SIGNAL("triggered(bool)"),
+						self.step)
 		self._action_bar.addAction(self._action_step)
 		self._menu.addAction(self._action_step)
 
@@ -126,8 +126,8 @@ class FrameAnimator (QMainWindow) :
 		self._menu.addAction(self._action_loop)
 
 		QObject.connect(self._action_loop,
-		                SIGNAL("triggered(bool)"),
-		                self._loop_changed)
+						SIGNAL("triggered(bool)"),
+						self._loop_changed)
 
 		#fps
 		self._fps_edit = QSpinBox()
@@ -137,15 +137,15 @@ class FrameAnimator (QMainWindow) :
 		self._action_bar.addWidget(self._fps_edit)
 
 		QObject.connect(self._fps_edit,
-		                SIGNAL("valueChanged(int)"),
-		                self._fps_changed)
+						SIGNAL("valueChanged(int)"),
+						self._fps_changed)
 
 		#slider
 		self._frame_slider = QSlider(Qt.Horizontal)
 		self._slider_bar.addWidget(self._frame_slider)
 		QObject.connect(self._frame_slider,
-		                SIGNAL("valueChanged(int)"),
-		                self._current_frame_changed)
+						SIGNAL("valueChanged(int)"),
+						self._current_frame_changed)
 
 		#init GUI
 		self.pause()
@@ -211,18 +211,18 @@ class FrameAnimator (QMainWindow) :
 		if len(self._frames) == 0 :
 			self._current_frame = None
 			for ob in (self._frame_slider,self._action_bar,
-			           self._action_stop,self._action_step,
-			           self._toggle_running,self._fps_edit,
-			           self._action_loop) :
+					   self._action_stop,self._action_step,
+					   self._toggle_running,self._fps_edit,
+					   self._action_loop) :
 				ob.setEnabled(False)
 			#self._menu.setEnabled(False)
 
 		else :
 			self._frame_slider.setRange(0,len(self._frames) - 1)
 			for ob in (self._frame_slider,self._action_bar,
-			           self._action_stop,self._action_step,
-			           self._toggle_running,self._fps_edit,
-			           self._action_loop) :
+					   self._action_stop,self._action_step,
+					   self._toggle_running,self._fps_edit,
+					   self._action_loop) :
 				ob.setEnabled(True)
 			#self._menu.setEnabled(True)
 
@@ -243,7 +243,7 @@ class FrameAnimator (QMainWindow) :
 
 		:Parameters:
 		 - `loop` (bool) - if True animation will restart from start each time
-		                   the end is reached
+						   the end is reached
 		"""
 		self._action_loop.setChecked(loop)
 

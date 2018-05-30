@@ -18,17 +18,17 @@ Expose the animator as a visualea node
 __revision__ = " $$ "
 
 def load_local(mod,modules):
-    modules = modules.split()
-    modules = ''.join(modules).split(',')
+	modules = modules.split()
+	modules = ''.join(modules).split(',')
 
-    for m in modules:
-        globals()[m] = mod.__getattribute__(m)
+	for m in modules:
+		globals()[m] = mod.__getattribute__(m)
 
 from openalea.vpltk.qt import QtGui, QtCore
 load_local(QtCore,'QObject,SIGNAL,QRect,QSize,QPoint')
 load_local(QtGui,"""QWidget,QLabel,QPixmap,
-                         QHBoxLayout,QVBoxLayout,
-                         QColor,QCursor,QPainter,QPen""")
+						 QHBoxLayout,QVBoxLayout,
+						 QColor,QCursor,QPainter,QPen""")
 from openalea.core import Node
 from openalea.visualea.node_widget import NodeWidget
 from openalea.image.gui.all import to_pix, ScalableLabel
@@ -108,10 +108,10 @@ class SelectBoxWidget(NodeWidget,ScalableLabel) :
 	def mouseMoveEvent (self, event) :
 		if self._mouse_ini_pos is not None :
 			old_rect = QRect(self._select_rect.topLeft(),
-			                 self._select_rect.size() + QSize(1,1) )
+							 self._select_rect.size() + QSize(1,1) )
 			self._select_rect = self.selected_rect(event.pos() )
 			update_rect = QRect(self._select_rect.topLeft(),
-			                 self._select_rect.size() + QSize(1,1) ) | old_rect
+							 self._select_rect.size() + QSize(1,1) ) | old_rect
 			self.update(update_rect)
 
 	def paintEvent (self, event) :
