@@ -120,7 +120,7 @@ def expert_sorter(graph, chtcids):
     Parameters
     ----------
     graph : TemporalPropertyGraph
-        the grapht to transform into MTG
+        the graph with the 'sub_lineage' graph_property
     chtcids : list
         a list of sibling ids, ex. [A,B,C]
 
@@ -178,7 +178,7 @@ def volume_sorter(graph, chtcids):
     Parameters
     ----------
     graph : TemporalPropertyGraph
-        the graph to transform into MTG
+        the graph with the 'volume' vertex_property
     chtcids : list
         a list of sibling ids, ex. [A,B,C]
 
@@ -235,7 +235,7 @@ def epidermis_surface_sorter(graph, chtcids):
     Parameters
     ----------
     graph : TPG
-        a tempora property graph,
+        the graph with the 'epidermis_area' vertex_property
     chtcids : list
         a list of sibling ids, ex. [A,B,C]
 
@@ -281,12 +281,14 @@ def topological_sorter(graph, chtcids):
     Parameters
     ----------
     graph : TPG
-        a tempora property graph,
+        the graph with the vertex topology
     chtcids : list
         a list of sibling ids, ex. [A,B,C]
     """
-    reduced_neighborhood = {vid: set(graph.neighbors(vid, 's')) & set(chtcids) for vid in chtcids}
-    extern_nei = {vid: set(graph.neighbors(vid, 's')) - set(chtcids) for vid in chtcids}
+    reduced_neighborhood = {vid: set(graph.neighbors(vid, 's')) & set(chtcids)
+                            for vid in chtcids}
+    extern_nei = {vid: set(graph.neighbors(vid, 's')) - set(chtcids) for vid in
+                  chtcids}
 
     not_adjacent = []
     for vid in chtcids:
