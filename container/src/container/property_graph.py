@@ -398,7 +398,7 @@ class PropertyGraph(IPropertyGraph, Graph):
                                 % ppty_name)
         # Check the input parameter 'eid_dict'
         if eid_dict is None:
-            print "Creating EMPTY egde property '{}'".format(ppty_name)
+            print "Creating EMPTY edge property '{}'".format(ppty_name)
             eid_dict = {}
         try:
             assert isinstance(eid_dict, dict)
@@ -420,7 +420,7 @@ class PropertyGraph(IPropertyGraph, Graph):
 
     def extend_edge_property(self, ppty_name, eid_dict):
         """
-        Extend an existing egde property 'ppty_name' with 'eid_dict', an eid dictionary.
+        Extend an existing edge property 'ppty_name' with 'eid_dict', an eid dictionary.
 
         Parameters
         ----------

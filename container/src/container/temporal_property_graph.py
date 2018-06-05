@@ -277,14 +277,14 @@ class TemporalPropertyGraph(PropertyGraph):
         time_steps : list, optional
             absolute acquisition time starting at t=0
         check_mapping : bool, optional
-            if True (default), the lineage is NOT checked before creation, see notes
+            if True (default), the lineage is checked before creation, see notes
 
         Notes
         -----
         * `mapping[0]` relate `graph[0]` vertex-ids to `graph[1]` vertex-ids
         * hence: `len(graphs) == len(mappings)-1` should be true
         * `time_steps` will be used to compute time-derivative scalars
-        * 'lineage checking' make sure a vid can not have two mothers
+        * 'check_mapping' make sure a vid can not have two mothers
         """
         # - Usual paranoia (avoid useless computation):
         # Make sure we have one more graphs than mappings:
@@ -335,7 +335,7 @@ class TemporalPropertyGraph(PropertyGraph):
         * 'graph[t]' the last PropertyGraph (at time-point `t`) of the TPG
         * 'graph[t+1]' the new PropertyGraph to add (`graph`)
         * then `mapping` relate 'graph[t]' vertex-ids to 'graph[t+1]' vertex-ids
-        * 'lineage checking' make sure a vid can not have two mothers
+        * 'check_mapping' make sure a vid can not have two mothers
         """
         # - Assert exist at least a graph in the object before trying to link it
         # to a second one:
@@ -398,7 +398,7 @@ class TemporalPropertyGraph(PropertyGraph):
                     # If not required to check the mapping:
                     # try too add an edge using Graph.add_edge()
                     # if an error (source or target ids) add to unused mapping list
-                    # if succeed, set the
+                    # if succeed, set the edge as 'temporal' using its 'eid'
                     for old_id_t in old_id_targets_f:
                         try:
                             eid = self.add_edge(on_ids_source[old_id_s],
