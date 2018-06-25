@@ -458,6 +458,23 @@ class TemporalPropertyGraph(PropertyGraph):
         PropertyGraph.clear(self)
         self._old_to_new_ids = []
 
+    def exists_time_point(self, time_point):
+        """
+        Test if the given temporal index 'time_point' exists in the
+        TemporalPropertyGraph object
+
+        Parameters
+        ----------
+        time_point : int
+            temporal index
+
+        Returns
+        -------
+        exists_time_point : bool
+            True if exists, else False
+        """
+        return time_point <= self.nb_time_points - 1
+
     # TODO: 'get_vertexpair2edge_map' should also exists in Graph & PropertyGraph classes (only params are different, 'edge_type' & 'time_point')
     def get_vertexpair2edge_map(self, vids=None, time_point=None, edge_type=None):
         """
@@ -1175,7 +1192,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        iterator: an iterator on the set of the 0, 1, ..., nth descendants of 'vid'
+        iterator: iter
+            an iterator on the set of the 0, 1, ..., nth descendants of 'vid'
         """
         return iter(self.descendants(vid, rank))
 
@@ -1188,12 +1206,13 @@ class TemporalPropertyGraph(PropertyGraph):
         vid : int|list|set
             id or list of ids of the vertex
         rank : int|None, optional
-            if None (default) returns all descendant up to the last time-point,
-            else is temporal distance to look at for 'vid' descendants.
+            if None returns all descendant up to the last time-point,
+            else rank is the temporal distance for 'vid' descendants.
 
         Returns
         -------
-        descendant_list: the set of the rank-descendant of vid or a list of set
+        descendant_list: list
+            the set of the rank-descendant of vid or a list of set
         """
         if isinstance(vid, list):
             return [self.rank_descendants(v, rank) for v in vid]
@@ -1213,6 +1232,36 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         return self.rank_descendants(vid, rank) != set()
 
+    def mapping_rank_descendants(self, vids, rank=1):
+        """
+        Return a temporal mapping dictionary for the given list of ancestor vids
+        and the temporal distance as rank.
+
+        Parameters
+        ----------
+        vid : int|list|set
+            id or list of ids of the vertex
+        rank : int|None, optional
+            if None (default) returns all descendant up to the last time-point,
+            else is temporal distance to look at for 'vid' descendants.
+
+        Returns
+        -------
+        mapping: dict
+            the set of the rank-descendant of vid or a list of set
+        """
+        try:
+            assert isinstance(vids, list)
+        except AssertionError:
+            raise TypeError("Parameter 'vids' should be a list, got {}!".format(type(vids)))
+
+        mapping = {}
+        for v in vids:
+            rank_desc = self.rank_descendants(v, rank=rank)
+            if rank_desc:
+                mapping[v] = rank_desc
+        return mapping
+
     def ancestors(self, vid, rank=None):
         """
         Return the 0, 1, ..., nth ancestors of the vertex 'vid'.
@@ -1229,7 +1278,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        ancestors_set: the set of the 0, 1, ..., nth ancestors of vertex 'vids'
+        ancestors_set: set
+            the set of the 0, 1, ..., nth ancestors of vertex 'vids'
         """
         neighbs = set()
         vid = self._to_set(vid)
@@ -1259,7 +1309,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        list
+        ancestors: list
+            list of all vertices with descendants at given 'rank'
         """
         return self.ancestors(self._vertices, rank)
 
