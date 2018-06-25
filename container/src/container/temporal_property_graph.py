@@ -22,6 +22,7 @@ edges: temporal edges.
 __license__ = "Cecill-C"
 __revision__ = " $Id$ "
 
+import numpy as np
 from collections import Iterable
 from heapq import heappop, heappush
 
@@ -510,7 +511,6 @@ class TemporalPropertyGraph(PropertyGraph):
         """
         Return the list of "in vertices" for vertex 'vid'.
 
-
         Parameters
         ----------
         vid : int
@@ -520,7 +520,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        neighbors_set: the set of parent vertices of vertex 'vid'
+        neighbors_set : set
+            the set of parent vertices of vertex 'vid'
         """
         if vid not in self.vertices():
             raise InvalidVertex(vid)
@@ -555,7 +556,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        iterator : an iterator on the set of parent vertices of vertex 'vid'
+        iterator : iter
+            an iterator on the set of parent vertices of vertex 'vid'
         """
         return iter(self.in_neighbors(vid, edge_type))
 
@@ -572,7 +574,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        neighbors_set : the set of child vertices of vertex 'vid'
+        neighbors_set : set
+            the set of child vertices of vertex 'vid'
         """
         if vid not in self:
             raise InvalidVertex(vid)
@@ -607,7 +610,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        iterator : an iterator on the set of child vertices of vertex 'vid'
+        iterator : iter
+            an iterator on the set of child vertices of vertex 'vid'
         """
         return iter(self.out_neighbors(vid, edge_type))
 
@@ -624,7 +628,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        neighbors_set : the set of neighbors vertices of vertex 'vid'
+        neighbors : set
+            the set of neighbors vertices of vertex 'vid'
         """
         return self.in_neighbors(vid, edge_type) | self.out_neighbors(vid,
                                                                       edge_type)
@@ -642,7 +647,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        iterartor : iterator on the set of neighbors vertices of vertex 'vid'
+        iterator : iter
+            iterator on the set of neighbors vertices of vertex 'vid'
         """
         return iter(self.neighbors(vid, edge_type))
 
@@ -659,19 +665,20 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        edge_list : the set of the in edges of the vertex 'vid'
+        edge_set : set
+            the set of the in edges of the vertex 'vid'
         """
         if vid not in self:
             raise InvalidVertex(vid)
 
         in_edges = self._vertices[vid][0]
         if not edge_type:
-            edge_list = in_edges
+            edge_set = in_edges
         else:
             edge_type = self._to_set(edge_type)
             e_ppty = self._edge_property['edge_type']
-            edge_list = {eid for eid in in_edges if e_ppty[eid] in edge_type}
-        return edge_list
+            edge_set = {eid for eid in in_edges if e_ppty[eid] in edge_type}
+        return edge_set
 
     def iter_in_edges(self, vid, edge_type=None):
         """
@@ -686,7 +693,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        iterator : an iterator on the set of the in edges of the vertex 'vid'
+        iterator : iter
+            an iterator on the set of the in edges of the vertex 'vid'
         """
         return iter(self.in_edges(vid, edge_type))
 
@@ -703,19 +711,20 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        edge_list : the set of the out edges of the vertex 'vid'
+        edge_list : set
+            the set of the out edges of the vertex 'vid'
         """
         if vid not in self:
             raise InvalidVertex(vid)
 
         out_edges = self._vertices[vid][1]
         if edge_type is None:
-            edge_list = out_edges
+            edge_set = out_edges
         else:
             edge_type = self._to_set(edge_type)
             e_ppty = self._edge_property['edge_type']
-            edge_list = {eid for eid in out_edges if e_ppty[eid] in edge_type}
-        return edge_list
+            edge_set = {eid for eid in out_edges if e_ppty[eid] in edge_type}
+        return edge_set
 
     def iter_out_edges(self, vid, edge_type=None):
         """
@@ -731,7 +740,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        iterator : an iterator on the set of the in edges of the vertex 'vid'
+        iterator : iter
+            an iterator on the set of the in edges of the vertex 'vid'
         """
         return iter(self.out_edges(vid, edge_type))
 
@@ -751,7 +761,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        edge_list : the set of the edges of the vertex 'vid'
+        edge_set : set
+            the set of the edges of the vertex 'vid'
         """
         if vid is None:
             if edge_type is not None:
@@ -777,7 +788,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        iterator : an iterator on the set of the edges of the vertex 'vid'
+        iterator : iter
+            an iterator on the set of the edges of the vertex 'vid'
         """
         return iter(self.edges(vid, edge_type))
 
@@ -799,7 +811,8 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        neighbors_set : the set of the vertices at distance 'depth' of 'vid'
+        neighbors_set : set
+            the set of the vertices at distance 'depth' of 'vid'
         (including vid)
         """
         # TODO: Check if this returns ONLY vids at distance 'depth'
@@ -825,8 +838,9 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        iterator : an iterator on the set of the vertices at distance n of the
-        vertex 'vid'
+        iterator : iter
+            an iterator on the set of the vertices at distance n of the
+            vertex 'vid'
         """
         return iter(self.neighborhood(vid, depth, edge_type))
 
@@ -856,8 +870,9 @@ class TemporalPropertyGraph(PropertyGraph):
 
         Returns
         -------
-        dist_dict : dict of the vid_j distances to 'vid' for j in
-        "set(vertices) - vid", {vid_j: edge_distance(vid, vid_j)}
+        dist_dict : dict
+            dictionary of the vid_j distances to 'vid' for j in
+            "set(vertices) - vid", {vid_j: edge_distance(vid, vid_j)}
         """
         dist = {}
         reduced_dist = {vid: 0}

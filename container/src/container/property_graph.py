@@ -128,6 +128,96 @@ class PropertyGraph(IPropertyGraph, Graph):
         s += "  - {} graph properties\n".format(len(self._graph_property))
         return s
 
+    ############################################################################
+    # Overridden methods of Graph object:
+    ############################################################################
+
+    def remove_vertex(self, vid):
+        """
+        Remove vertex if 'vid' from the object.
+        It is also removed from any vertex property dictionary!
+
+        Parameters
+        ----------
+        vid : int
+            id of the vertex to remove
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        # Remove the vertex 'vid' from the object using 'Graph' function
+        Graph.remove_vertex(self, vid)
+        # Remove the key 'vid', and its associated value, for all properties:
+        for prop in self._vertex_property.itervalues():
+            prop.pop(vid, None)
+        return
+    # remove_vertex.__doc__ = Graph.remove_vertex.__doc__
+
+    def remove_edge(self, eid):
+        """
+        Remove the edge 'eid' from the object.
+        It is also removed from any edge property dictionary!
+
+        Parameters
+        ----------
+        eid : int
+            id of the edge to remove
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        # Remove the edge 'eid' from the object using 'Graph' function
+        Graph.remove_edge(self, eid)
+        # Remove the key 'eid', and its associated value, for all properties:
+        for e_ppty in self._edge_property.itervalues():
+            e_ppty.pop(eid, None)
+        return
+    # remove_edge.__doc__ = Graph.remove_edge.__doc__
+
+    def clear(self):
+        """
+        Clear the object of all vetex, edge and graph properties.
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        Graph.clear(self)
+        # Clear vertex properties:
+        vid_ppty = list(self.vertex_property_names())
+        for ppty in vid_ppty:
+            self.remove_vertex_property(ppty)
+        # Clear edge properties:
+        eid_ppty = list(self.edge_property_names())
+        for ppty in eid_ppty:
+            self.remove_edge_property(ppty)
+        # Clear graph properties:
+        graph_ppty = list(self.graph_property_names())
+        for ppty in graph_ppty:
+            self.remove_graph_property(ppty)
+        return
+    # clear.__doc__ = Graph.clear.__doc__
+
+    def clear_edges(self):
+        """
+        Remove all edges from the object.
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        Graph.clear_edges(self)
+        for prop in self._edge_property.itervalues():
+            prop.clear()
+        return
+    # clear_edges.__doc__ = Graph.clear_edges.__doc__
+
+    ############################################################################
+    # VERTEX associated properties:
+    ############################################################################
+
     def vertex_property_names(self):
         """
         Return a key-iterator of vertex property names in the object.
@@ -185,6 +275,10 @@ class PropertyGraph(IPropertyGraph, Graph):
         else:
             return ppty
     # vertex_property.__doc__=IPropertyGraph.vertex_property.__doc__
+
+    ############################################################################
+    # EDGE associated properties:
+    ############################################################################
 
     def edge_property_names(self):
         """
@@ -244,6 +338,10 @@ class PropertyGraph(IPropertyGraph, Graph):
             return ppty
     # edge_property.__doc__ = IPropertyGraph.edge_property.__doc__
 
+    ############################################################################
+    # GRAPH associated properties:
+    ############################################################################
+
     def graph_property_names(self):
         """
         Return a key-iterator of graph property names in the object.
@@ -285,9 +383,15 @@ class PropertyGraph(IPropertyGraph, Graph):
             raise PropertyError(MISSING_PPTY.format(ppty_name, 'graph'))
     # graph_property.__doc__ = IPropertyGraph.graph_property.__doc__
 
+    ############################################################################
+    # Hidden functions:
+    ############################################################################
+
     def _ids_type(self, ids_type):
         """
-        
+        Hidden function using 'edge' or 'vertex' string to return list of
+        corresponding vertex or edge ids, as well as the plural form.
+
         Parameters
         ----------
         ids_type: str
@@ -295,7 +399,10 @@ class PropertyGraph(IPropertyGraph, Graph):
 
         Returns
         -------
-
+        ids : list
+            the list of corresponding vertex or edge ids
+        t : str
+            the plural form of the given id type
         """
         if ids_type == "vertex":
             ids = self.vertices()
@@ -305,7 +412,6 @@ class PropertyGraph(IPropertyGraph, Graph):
             t = "edges"
         else:
             raise ValueError("Unknown 'ids_type': {}!".format(ids_type))
-
         return ids, t
 
     def _missing_ids(self, ppty_dict, ids_type):
@@ -406,6 +512,10 @@ class PropertyGraph(IPropertyGraph, Graph):
                 len(duplicated_ids), ids_type, len(id_dict), ppty_name)
 
         return ppty_dict
+
+    ############################################################################
+    # VERTEX property creation and edition functions :
+    ############################################################################
 
     def add_vertex_property(self, ppty_name, vid_dict=None):
         """
@@ -557,6 +667,10 @@ class PropertyGraph(IPropertyGraph, Graph):
             print "Cleared vertex property '{}' of n={} values!".format(ppty_name, n)
         return
 
+    ############################################################################
+    # EDGE property creation and edition functions :
+    ############################################################################
+
     def add_edge_property(self, ppty_name, eid_dict=None):
         """
         Add a new edge property, with eid_dict if it is an eid dictionary, or leaves
@@ -705,6 +819,10 @@ class PropertyGraph(IPropertyGraph, Graph):
         else:
             print "Cleared edge property '{}' of n={} values!".format(ppty_name, n)
         return
+
+    ############################################################################
+    # GRAPH property creation and edition functions :
+    ############################################################################
 
     def add_graph_property(self, ppty_name, values=None):
         """
@@ -889,92 +1007,13 @@ class PropertyGraph(IPropertyGraph, Graph):
             print "Cleared graph property '{}' of n={} values!".format(ppty_name, n)
         return
 
-    def remove_vertex(self, vid):
-        """
-        Remove vertex if 'vid' from the object.
-        It is also removed from any vertex property dictionary!
-
-        Parameters
-        ----------
-        vid : int
-            id of the vertex to remove
-
-        Returns
-        -------
-        Nothing, edit object
-        """
-        # Remove the vertex 'vid' from the object using 'Graph' function
-        Graph.remove_vertex(self, vid)
-        # Remove the key 'vid', and its associated value, for all properties:
-        for prop in self._vertex_property.itervalues():
-            prop.pop(vid, None)
-        return
-    # remove_vertex.__doc__ = Graph.remove_vertex.__doc__
-
-    def remove_edge(self, eid):
-        """
-        Remove the edge 'eid' from the object.
-        It is also removed from any edge property dictionary!
-
-        Parameters
-        ----------
-        eid : int
-            id of the edge to remove
-
-        Returns
-        -------
-        Nothing, edit object
-        """
-        # Remove the edge 'eid' from the object using 'Graph' function
-        Graph.remove_edge(self, eid)
-        # Remove the key 'eid', and its associated value, for all properties:
-        for e_ppty in self._edge_property.itervalues():
-            e_ppty.pop(eid, None)
-        return
-    # remove_edge.__doc__ = Graph.remove_edge.__doc__
-
-    def clear(self):
-        """
-        Clear the object of all vetex, edge and graph properties.
-
-        Returns
-        -------
-        Nothing, edit object
-        """
-        Graph.clear(self)
-        # Clear vertex properties:
-        vid_ppty = list(self.vertex_property_names())
-        for ppty in vid_ppty:
-            self.remove_vertex_property(ppty)
-        # Clear edge properties:
-        eid_ppty = list(self.edge_property_names())
-        for ppty in eid_ppty:
-            self.remove_edge_property(ppty)
-        # Clear graph properties:
-        graph_ppty = list(self.graph_property_names())
-        for ppty in graph_ppty:
-            self.remove_graph_property(ppty)
-        return
-    # clear.__doc__ = Graph.clear.__doc__
-
-    def clear_edges(self):
-        """
-        Remove all edges from the object.
-
-        Returns
-        -------
-        Nothing, edit object
-        """
-        Graph.clear_edges(self)
-        for prop in self._edge_property.itervalues():
-            prop.clear()
-        return
-    # clear_edges.__doc__ = Graph.clear_edges.__doc__
+    ############################################################################
+    # GRAPH extension and relabelling functions :
+    ############################################################################
 
     @staticmethod
     def _translate_property(dict_values, trans_vid, trans_eid,
-                            key_translation,
-                            value_translation):
+                            key_translation, value_translation):
         """
         Translate edge and vertex properties (dictionary) using 'trans_vid' &
         'trans_eid' dict, and "type"
@@ -999,14 +1038,9 @@ class PropertyGraph(IPropertyGraph, Graph):
 
         Returns
         -------
-
+        trans_dict : dict
+            translated dictionary
         """
-        # - Add a 'None' entry to vertex and edges translation dict:
-        # trans_vid = deepcopy(trans_vid)
-        # trans_vid[None] = None
-        # trans_eid = deepcopy(trans_eid)
-        # trans_eid[None] = None
-
         # - Define identity translation function, used with 'ValueType'
         id_value = lambda value: value
 
@@ -1192,7 +1226,7 @@ class PropertyGraph(IPropertyGraph, Graph):
 
         return
 
-    def extend_property_graph(self, graph):
+    def extend_property_graph(self, graph, verbose=True):
         # def extend(self, graph):
         """
         Extend the current object ('self') with another 'graph' of type Graph or
@@ -1213,12 +1247,18 @@ class PropertyGraph(IPropertyGraph, Graph):
         * differ from Graph.extend() since relabelling of 'graph' vids and eids
         should be applied to any vertex or edge properties from this graph before .
         """
+        try:
+            assert isinstance(graph, Graph) or isinstance(graph, PropertyGraph)
+        except AssertionError:
+            err = "Input 'graph' should be a 'Graph' or a 'PropertyGraph' object"
+            err += ", got '{}!".format(type(graph))
+            raise TypeError(err)
         # Renumber and add the vertex and edge ids of 'graph':
         trans_vid, trans_eid = Graph.extend(self, graph)
         # relabel the vertex, edge and graph properties:
-        self._relabel_and_add_vertex_properties(graph, trans_vid)
-        self._relabel_and_add_edge_properties(graph, trans_eid)
-        self._relabel_and_add_graph_properties(graph, trans_vid, trans_eid)
+        self._relabel_and_add_vertex_properties(graph, trans_vid, verbose)
+        self._relabel_and_add_edge_properties(graph, trans_eid, verbose)
+        self._relabel_and_add_graph_properties(graph, trans_vid, trans_eid, verbose)
         return trans_vid, trans_eid
 
     # extend_property_graph.__doc__ = Graph.extend.__doc__
@@ -1411,38 +1451,16 @@ class PropertyGraph(IPropertyGraph, Graph):
         # - If neither an EdgeIdType nor a VertexIdType, return ValueType
         return ValueType
 
-    def _to_set(self, s):
-        """
-        Hidden method to transforms 's' into a list.
-
-        Parameters
-        ----------
-        s : int|list|set
-            a variable to transform into a set.
-
-        Returns
-        -------
-        a set from 's'
-        """
-        if not isinstance(s, set):
-            if isinstance(s, list):
-                s = set(s)
-            elif isinstance(s, int):
-                s = {s}
-            elif isinstance(s, str) and len(s)==1:
-                s = {s}
-            else:
-                raise TypeError(
-                    "Unable to transform input type {} into a set!".format(
-                        type(s)))
-        return s
+    ############################################################################
+    # EXPORT/IMPORT with NetworkX library
+    ############################################################################
 
     def to_networkx(self):
         """
         Return a NetworkX Graph object from current object.
 
         Returns
-        ------- 
+        -------
         a NetworkX graph object (nx.Graph).
         """
         s = self.source
@@ -1516,55 +1534,10 @@ class PropertyGraph(IPropertyGraph, Graph):
 
         return g
 
-    def get_vertex_ppty_type(self, vtx_ppty):
-        """
-        Return the type (scalar|vector|tensor) of a given vertex property.
-
-        Parameters
-        ----------
-        vtx_ppty : str
-            name of an existing vertex property
-        """
-        # TODO: move to TissueGraph? class.
-
-        # TODO: Not really working except for scalars...
-        # TODO: ...should be more strict when defining variables types!!!
-
-        # Get every 'vtx_ppty' values:
-        values_list = [v for v in self.vertex_property(vtx_ppty).values() if
-                       v is not None]
-        # Now get their types and simplify this list to its 'unique values' using 'set()'.
-        types_set = set([type(v) for v in values_list])
-
-        if len(types_set) != 1:
-            raise warnings.warn(
-                "More than ONE type detected for vertex property '{}'! Please check it!".format(
-                    vtx_ppty))
-
-        first_val = values_list[0]
-        print first_val
-        first_type = type(first_val)
-
-        try:
-            sh = first_val.shape
-        except TypeError:
-            pass
-        else:
-            if sh != (1, 1) and sh != ():
-                return "tensor", sh
-            else:
-                return "scalar"
-
-        try:
-            le = first_val.len
-        except TypeError:
-            return "scalar"
-        else:
-            if le != 1:
-                return "vector", le
-            else:
-                return "scalar"
-
+    ############################################################################
+    # EXPORT graph as a CSV
+    ############################################################################
+    # TODO: rewrite using Pandas library?
     def to_csv(self, graph_name, ppty2export=None, out_fname=None,
                datetime2fname=True):
         """
@@ -1573,7 +1546,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         For length-D vectors properties, like barycenters, each D value will be
         outputed in a separate column.
         By default export all properties.
-        
+
         Parameters
         ----------
         graph_name : str
@@ -1585,16 +1558,14 @@ class PropertyGraph(IPropertyGraph, Graph):
             the name of the csv file!
         datetime2fname : bool
             if True (default) add the date to the csv filename.
-        
+
         Note
         ----
         Based on the original work of V.Mirabet.
         """
-        # TODO: move to TissueGraph? class.
-        # TODO: use Pandas library?
         # Init the CSV header with ['graph_name'; 'vid';]:
         csv_head = "graph_name" + ";" + "vid" + ";"
-        # Get the possible ppty to export crossing required 'ppty_sublist' & 
+        # Get the possible ppty to export crossing required 'ppty_sublist' &
         # available ones (g.vertex_property_names):
         if ppty2export is not None:
             ppty2export = list(
@@ -1659,9 +1630,89 @@ class PropertyGraph(IPropertyGraph, Graph):
                 m.tm_mon) + "_" + str(m.tm_mday) + "_" + str(
                 m.tm_hour) + "_" + str(m.tm_min)
 
-        # Finally write the WHOLE 's' string 
+        # Finally write the WHOLE 's' string
         f = open(out_fname + ".csv", "w")
         f.write(csv)
         f.close()
-        print "Done writting '{}' file!".format(out_fname + ".csv")
+        print "Done witting '{}' file!".format(out_fname + ".csv")
         return
+
+    ############################################################################
+    # Misc: Should probably be elsewhere !
+    ############################################################################
+
+    @staticmethod
+    def _to_set(s):
+        """
+        Hidden method to transforms 's' into a list.
+
+        Parameters
+        ----------
+        s : int|list|set
+            a variable to transform into a set.
+
+        Returns
+        -------
+        a set from 's'
+        """
+        if not isinstance(s, set):
+            if isinstance(s, list):
+                s = set(s)
+            elif isinstance(s, int):
+                s = {s}
+            elif isinstance(s, str) and len(s)==1:
+                s = {s}
+            else:
+                raise TypeError(
+                    "Unable to transform input type {} into a set!".format(
+                        type(s)))
+        return s
+
+    def get_vertex_ppty_type(self, vtx_ppty):
+        """
+        Return the type (scalar|vector|tensor) of a given vertex property.
+
+        Parameters
+        ----------
+        vtx_ppty : str
+            name of an existing vertex property
+        """
+        # TODO: move to TissueGraph? class.
+
+        # TODO: Not really working except for scalars...
+        # TODO: ...should be more strict when defining variables types!!!
+
+        # Get every 'vtx_ppty' values:
+        values_list = [v for v in self.vertex_property(vtx_ppty).values() if
+                       v is not None]
+        # Now get their types and simplify this list to its 'unique values' using 'set()'.
+        types_set = set([type(v) for v in values_list])
+
+        if len(types_set) != 1:
+            raise warnings.warn(
+                "More than ONE type detected for vertex property '{}'! Please check it!".format(
+                    vtx_ppty))
+
+        first_val = values_list[0]
+        print first_val
+        first_type = type(first_val)
+
+        try:
+            sh = first_val.shape
+        except TypeError:
+            pass
+        else:
+            if sh != (1, 1) and sh != ():
+                return "tensor", sh
+            else:
+                return "scalar"
+
+        try:
+            le = first_val.len
+        except TypeError:
+            return "scalar"
+        else:
+            if le != 1:
+                return "vector", le
+            else:
+                return "scalar"
