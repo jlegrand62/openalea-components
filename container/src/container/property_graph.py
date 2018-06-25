@@ -98,7 +98,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         Graph.__init__(self, graph, idgenerator)
         # - Add the new object attributes:
         # '_vertex_property', '_edge_property' & '_graph_property'
-        # TODO: add also '_vertex_property_unit', '_edge_property_unit' & '_graph_property_unit' ??
+        # TODO: also create '_vertex_property_unit', '_edge_property_unit' & '_graph_property_unit' ??
         if graph is None:
             self._vertex_property = {}
             self._edge_property = {}
@@ -369,6 +369,44 @@ class PropertyGraph(IPropertyGraph, Graph):
         # - Return a dictionary with existing eids/vids only:
         return self._missing_ids(ppty_dict, ids_type)
 
+    def _extend_ppty(self, ppty_name, ppty_dict, id_dict, ids_type):
+        """
+        Performs the extension of an edge or vertex property.
+
+        Parameters
+        ----------
+        ppty_name : str
+            name of the property, used for printing
+        ppty_dict : dict
+            edge or vertex id dictionary to extend
+        id_dict : dict
+            the edge or vertex id dictionary to use for extension
+        ids_type : str
+            type of property, to choose among 'egde' and 'vertex'
+
+        Returns
+        -------
+        ppty_dict : dict
+            the extended dictionary
+        """
+        duplicated_ids = [k for k in id_dict.keys() if k in ppty_dict.keys()]
+        new_ids = list(set(id_dict.keys()) - set(duplicated_ids))
+        if new_ids:
+            ppty_dict.update({k: id_dict[k] for k in new_ids})
+            print "Extended {} property '{}' with {} values!".format(ids_type,
+                                                                     ppty_name,
+                                                                     len(
+                                                                         new_ids))
+        else:
+            print "No new values found to extend {} property '{}'!".format(
+                ids_type, ppty_name)
+        # - Print if exist some duplicated keys:
+        if duplicated_ids:
+            print "Found {} {}-ids (out of {}) with a defined value for property '{}'.".format(
+                len(duplicated_ids), ids_type, len(id_dict), ppty_name)
+
+        return ppty_dict
+
     def add_vertex_property(self, ppty_name, vid_dict=None):
         """
         Add a new vertex property, with vid_dict if it is a vid dictionary, or leaves
@@ -421,23 +459,12 @@ class PropertyGraph(IPropertyGraph, Graph):
         # - Assert the property does exist:
         if ppty_name not in self._vertex_property:
             raise PropertyError(MISSING_PPTY.format(ppty_name, 'vertex'))
-
         # - Check the input 'vid_dict', and that all keys are in the graph:
         vid_dict = self._input_dict(ppty_name, vid_dict, 'vertex', False)
-        
-        # - Update vertex property 'ppty_name':
+        # - Extend the vertex property 'ppty_name':
         ppty_dict = self._vertex_property[ppty_name]
-        duplicated_ids = [k for k in vid_dict.keys() if k in ppty_dict.keys()]
-        new_ids = list(set(vid_dict.keys()) - set(duplicated_ids))
-        if new_ids:    
-            ppty_dict.update({k: vid_dict[k] for k in new_ids})
-            print "Extended vertex property '{}' with {} values!".format(ppty_name, len(new_ids))
-        else:
-            print "No new values found to extend vertex property '{}'!".format(ppty_name)
-        # - Print if exist some duplication in vertex ppty 'ppty_name':
-        if duplicated_ids:
-            print "Found {} vids (out of {}) with a defined value for property '{}'.".format(
-                len(duplicated_ids), len(vid_dict), ppty_name)
+        ppty_dict = self._extend_ppty(ppty_name, ppty_dict, vid_dict, 'vertex')
+        self._vertex_property[ppty_name] = ppty_dict
         return
 
     def remove_vertex_property(self, ppty_name):
@@ -585,20 +612,8 @@ class PropertyGraph(IPropertyGraph, Graph):
 
         # - Update edge property 'ppty_name':
         ppty_dict = self._edge_property[ppty_name]
-        duplicated_ids = [k for k in eid_dict.keys() if k in ppty_dict.keys()]
-        new_ids = list(set(eid_dict.keys()) - set(duplicated_ids))
-        if new_ids:
-            ppty_dict.update({k: eid_dict[k] for k in new_ids})
-            print "Extended edge property '{}' with {} values!".format(
-                ppty_name, len(new_ids))
-        else:
-            print "No new values found to extend edge property '{}'!".format(
-                ppty_name)
-        # - Print if exist some duplication in edge ppty 'ppty_name':
-        if duplicated_ids:
-            print "Found {} eids (out of {}) with a defined value for property '{}'.".format(
-                len(duplicated_ids), len(eid_dict), ppty_name)
-
+        ppty_dict = self._extend_ppty(ppty_name, ppty_dict, eid_dict, 'edge')
+        self._vertex_property[ppty_name] = ppty_dict
         return
 
     def remove_edge_property(self, ppty_name):
