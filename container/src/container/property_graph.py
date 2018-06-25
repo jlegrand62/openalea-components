@@ -34,6 +34,11 @@ except ImportError:
 VertexProperty, EdgeProperty, GraphProperty = range(3)
 VertexIdType, EdgeIdType, ValueType = range(3)
 
+MISSING_PPTY = "Property '{}' is NOT defined as {} property!"
+EXISTING_PPTY = "Property '{}' is already defined as {} property!"
+EMPTY_PPTY = "Creating EMPTY {} property named '{}'!"
+EMPTY_EXTEND = "Trying to extend {} property '{}' with empty {}!"
+NULL_VALUES = "Trying to update {} property '{}' with NULL value!"
 
 class PropertyGraph(IPropertyGraph, Graph):
     """
@@ -42,9 +47,11 @@ class PropertyGraph(IPropertyGraph, Graph):
     
     Usage
     -----
-    Use self._vertex_property to save vertex properties.
-    Use self._edge_property to save edge properties.
-    Use self._graph_property to save graph properties.
+    The different "properties" are stored as dictionary under:
+      * self._vertex_property save vertex properties with vertex-ids as keys;
+      * self._edge_property save edge properties with edge-ids as keys;
+      * self._graph_property save graph properties with a string as key.
+
     To define some keys or values of "graph properties" as vertex-ids or 
     edge-ids, use one of the following:
       - 'self.set_graph_property_key_to_vid_type()'
@@ -67,26 +74,53 @@ class PropertyGraph(IPropertyGraph, Graph):
     meta_eid_value_type = "value_as_eid"
 
     def __init__(self, graph=None, **kwargs):
+        """
+        Parameters
+        ----------
+        graph : Graph|PropertyGraph, optional
+            by default (None), initialize an empty PropertyGraph, else try to
+            re-use the '_vertex_property', '_edge_property' & '_graph_property'
+            attributes of the given object!
+
+        kwargs
+        ------
+        idgenerator: 'list'|'max'|'set'
+            indicate how the vertex and edge ids will be generated
+            by the object, by default use 'set'
+        verbose: bool
+            control the verbosity of the object initialization, by default use
+            silent mode (ie. False)
+        """
+        # - Parsing keyword-arguments:
         idgenerator = kwargs.get('idgenerator', "set")
         verbose = kwargs.get('verbose', False)
-
+        # - Call 'Graph' object init:
         Graph.__init__(self, graph, idgenerator)
+        # - Add the new object attributes:
+        # '_vertex_property', '_edge_property' & '_graph_property'
+        # TODO: add also '_vertex_property_unit', '_edge_property_unit' & '_graph_property_unit' ??
         if graph is None:
             self._vertex_property = {}
             self._edge_property = {}
             self._graph_property = {}
             if verbose:
-                print "Constructing EMPTY PropertyGraph object"
+                print "Initialized empty PropertyGraph object!"
         else:
-            self._vertex_property = graph._vertex_property
-            self._edge_property = graph._edge_property
-            self._graph_property = graph._graph_property
+            try:
+                self._vertex_property = graph._vertex_property
+                self._edge_property = graph._edge_property
+                self._graph_property = graph._graph_property
+            except AttributeError:
+                raise TypeError("Unknown type of graph '{}', missing vertex, edge or graph property attribute!".format(type(graph)))
+            else:
+                if verbose:
+                    print "Initialized ", self.__str__()
 
     def __str__(self):
         """
         Format returned object information.
         """
-        s = "Object 'PropertyGraph' containing:\n"
+        s = "'PropertyGraph' object containing:\n"
         s += "  - {} vertices\n".format(len(self._vertices))
         s += "  - {} edges\n".format(len(self._edges))
         s += "  - {} vertex properties\n".format(len(self._vertex_property))
@@ -103,7 +137,6 @@ class PropertyGraph(IPropertyGraph, Graph):
         iterator of self._vertex_property.keys()
         """
         return self._vertex_property.iterkeys()
-
     # vertex_property_names.__doc__ = IPropertyGraph.vertex_property_names.__doc__
 
     def vertex_properties(self):
@@ -117,35 +150,40 @@ class PropertyGraph(IPropertyGraph, Graph):
         a dictionary {'ppty_name': {vid: vid_ppty_value}}
         """
         return self._vertex_property
-
     # vertex_properties.__doc__ = IPropertyGraph.vertex_properties.__doc__
 
     def vertex_property(self, ppty_name, vids=None):
         """
-        Return the dictionary of vid values, filtered by vids if not None.
+        Return a dictionary of vertex values for given property name, can be 
+        filtered by vertex-ids (`vids`) if not None.
+        If an integer is given as `vids`, only its value is returned!
 
         Parameters
         ----------
         ppty_name: str
             the name of an existing vertex property
-        vids: list
-            filter the list of vids to return
+        vids: int|list|set|None, optional
+            by default (None), return all values associated to this property;
+            list/set of vertex-ids used to filter the keys of the returned 
+            dictionary;
+            an integer returns a value;
 
         Returns
         -------
-        a dictionary {vid: vid_ppty_value}
+        the associated values if `vids` is an integer, else the vertex-ids 
+        dictionary for given `vids`
         """
-        try:
-            if vids is not None:
-                return dict([(k, v) for k, v in
-                             self._vertex_property[ppty_name].iteritems() if
-                             k in vids])
-            else:
-                return self._vertex_property[ppty_name]
-        except KeyError:
-            raise PropertyError("Property %s is undefined on vertices"
-                                % ppty_name)
-
+        # - Assert the property exists:
+        if not self._vertex_property.has_key(ppty_name):
+            raise PropertyError(MISSING_PPTY.format(ppty_name, 'vertex'))
+        # - Return it for desired vid keys:
+        ppty = self._vertex_property[ppty_name]
+        if isinstance(vids, int):
+            return ppty[vids]
+        elif isinstance(vids, list) or isinstance(vids, set):
+            return {k: v for k, v in ppty.items() if k in vids}
+        else:
+            return ppty
     # vertex_property.__doc__=IPropertyGraph.vertex_property.__doc__
 
     def edge_property_names(self):
@@ -157,7 +195,6 @@ class PropertyGraph(IPropertyGraph, Graph):
         iterator of self._edges_property.keys()
         """
         return self._edge_property.iterkeys()
-
     # edge_property_names.__doc__ = IPropertyGraph.edge_property_names.__doc__
 
     def edge_properties(self):
@@ -171,37 +208,40 @@ class PropertyGraph(IPropertyGraph, Graph):
         a dictionary {'ppty_name': {eid: eid_ppty_value}}, for all edge properties
         """
         return self._edge_property
-
     #  edge_properties.__doc__ = IPropertyGraph. edge_properties.__doc__
 
     def edge_property(self, ppty_name, eids=None):
         """
-        Return the dictionary of eid values, filtered by eids if not None.
+        Return a dictionary of edge values for given property name, can be 
+        filtered by edge-ids (`eids`) if not None.
+        If an integer is given as `eids`, only its value is returned!
 
         Parameters
         ----------
         ppty_name: str
-            the name of an existing edge property
+            the name of an existing edge property;
         eids: int|list|set|None, optional
-            if not None, used to filter the value or eid-dict to return
+            by default (None), return all values associated to this property
+            list/set of edge-ids used to filter the keys of the returned 
+            dictionary;
+            an integer returns a value;
 
         Returns
         -------
-        a dictionary {eid: eid_ppty_value}
+        the associated values if `eids` is an integer, else the edge-ids 
+        dictionary for given `eids`
         """
-        try:
-            if isinstance(eids, int):
-                return self._edge_property[ppty_name][eids]
-            elif isinstance(eids, list) or isinstance(eids, set):
-                return dict([(k, v) for k, v in
-                             self._edge_property[ppty_name].iteritems() if
-                             k in eids])
-            else:
-                return self._edge_property[ppty_name]
-        except KeyError:
-            raise PropertyError("Property %s is undefined on edges"
-                                % ppty_name)
-
+        # - Assert the property exists:
+        if not self._edge_property.has_key(ppty_name):
+            raise PropertyError(MISSING_PPTY.format(ppty_name, 'edge'))
+        # - Return it for desired eid keys:
+        ppty = self._edge_property[ppty_name]
+        if isinstance(eids, int):
+            return ppty[eids]
+        elif isinstance(eids, list) or isinstance(eids, set):
+            return {k: v for k, v in ppty.items() if k in eids}
+        else:
+            return ppty
     # edge_property.__doc__ = IPropertyGraph.edge_property.__doc__
 
     def graph_property_names(self):
@@ -242,10 +282,92 @@ class PropertyGraph(IPropertyGraph, Graph):
         try:
             return self._graph_property[ppty_name]
         except KeyError:
-            raise PropertyError("Property %s is undefined on graph"
-                                % ppty_name)
-
+            raise PropertyError(MISSING_PPTY.format(ppty_name, 'graph'))
     # graph_property.__doc__ = IPropertyGraph.graph_property.__doc__
+
+    def _ids_type(self, ids_type):
+        """
+        
+        Parameters
+        ----------
+        ids_type: str
+            type of dictionary, can be either 'edge' or 'vertex'
+
+        Returns
+        -------
+
+        """
+        if ids_type == "vertex":
+            ids = self.vertices()
+            t = "vertices"
+        elif ids_type == "edge":
+            ids = self.edges()
+            t = "edges"
+        else:
+            raise ValueError("Unknown 'ids_type': {}!".format(ids_type))
+
+        return ids, t
+
+    def _missing_ids(self, ppty_dict, ids_type):
+        """
+        Hidden function used to check vertex/edge-ids definition in given 
+        property dictionary `ppty_dict`.
+
+        Parameters
+        ----------
+        ppty_dict: dict
+            an eid/vid based dictionary
+        ids_type: str
+            type of dictionary, can be either 'edge' or 'vertex'
+
+        Returns
+        -------
+
+        """
+        ids, t = self._ids_type(ids_type)
+        
+        missing_vertex = list(set(ppty_dict.keys()) - set(ids))
+        if missing_vertex:
+            n = len(missing_vertex)
+            print "Given dictionary contains {} unknown {}!".format(n, t)
+            return {k: v for k, v in ppty_dict.items() if k in ids}
+        else:
+            return ppty_dict
+
+    def _input_dict(self, ppty_name, ppty_dict, ids_type, none_ok):
+        """
+        Hidden function to tests given `ppty_dict`.
+        
+        Parameters
+        ----------
+        ppty_name: str
+            the name of the edge/vertex property
+        ppty_dict: dict
+            the dictionary to test
+        ids_type: str
+            type of dictionary, can be either 'edge' or 'vertex'
+        none_ok: bool
+            define if given `ppty_dict` can be None and converted to empty 
+            dictionary
+
+        Returns
+        -------
+        
+        """
+        ids, t = self._ids_type(ids_type)
+
+        if ppty_dict is None:
+            if none_ok:
+                print EMPTY_PPTY.format(t, ppty_name)
+                return {}
+            else:
+                raise TypeError(EMPTY_PPTY.format(t, ppty_name))
+        
+        if not isinstance(ppty_dict, dict):
+            raise TypeError("Input '{}' is not a {} dictionary!".format(ppty_name, ids_type))
+        
+        # - Return a dictionary with existing eids/vids only:
+        return self._missing_ids(ppty_dict, ids_type)
 
     def add_vertex_property(self, ppty_name, vid_dict=None):
         """
@@ -263,32 +385,14 @@ class PropertyGraph(IPropertyGraph, Graph):
         -------
         Nothing, edit object
         """
-        # TODO: add 'value' param -> assign to all vids!
-        # Check 'ppty_name' exists:
+        # - Assert the property does NOT exist:
         if ppty_name in self._vertex_property:
-            raise PropertyError("Property %s is already defined on vertices"
-                                % ppty_name)
-        # Check the input parameter 'vid_dict'
-        if vid_dict is None:
-            print "Creating EMPTY vertex property '{}'".format(ppty_name)
-            vid_dict = {}
-        else:
-            try:
-                assert isinstance(vid_dict, dict)
-            except AssertionError:
-                raise TypeError(
-                    "Parameter 'vid_dict' must be a dictionary {vid: value}")
-        # Check all 'vid_dict' keys are in the graph:
-        missing_vertex = list(set(vid_dict.keys()) - set(self.vertices()))
-        if missing_vertex != []:
-            print "The vid-dictionary '{}' contains {} unknown vertices:\n{}".format(
-                ppty_name, len(missing_vertex), missing_vertex)
-            vid_dict = dict([(k, v) for k, v in vid_dict.iteritems() if
-                             k in self.vertices()])
-        # Finally add the vertex property to the graph:
+            raise PropertyError(EXISTING_PPTY.format(ppty_name, 'vertex'))
+        # - Check the input 'vid_dict', and that all keys are in the graph:
+        vid_dict = self._input_dict(ppty_name, vid_dict, 'vertex', True)
+        # - Finally add the vertex property to the graph:
         self._vertex_property[ppty_name] = vid_dict
         return
-
     # add_vertex_property.__doc__ = IPropertyGraph.add_vertex_property.__doc__
 
     def extend_vertex_property(self, ppty_name, vid_dict):
@@ -299,7 +403,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         Parameters
         ----------
         ppty_name : str
-            a string mathing an existing property
+            a string matching an existing property
         vid_dict : dict
             a dictionary {vid: vid_vid_dict}
 
@@ -314,36 +418,26 @@ class PropertyGraph(IPropertyGraph, Graph):
         * if a vid already has a value associated fo vertex property
         'ppty_name' we do not update this value
         """
-        # Check the input parameter 'vid_dict'
-        if not isinstance(vid_dict, dict):
-            raise TypeError("'vid_dict' %s is not a type 'dict'" % vid_dict)
-        else:
-            try:
-                assert vid_dict != {}
-            except AssertionError:
-                raise ValueError("'vid_dict' is an EMPTY 'dict'")
-        # Check 'ppty_name' exists:
+        # - Assert the property does exist:
         if ppty_name not in self._vertex_property:
-            print "Creating vertex property %s" % ppty_name
-            self._vertex_property[ppty_name] = {}
-        # Check all 'vid_dict' keys are in the graph:
-        missing_vertex = list(set(vid_dict.keys()) - set(self.vertices()))
-        if missing_vertex != []:
-            print "The vid-dictionary '{}' contains {} unknown vertices:\n{}".format(
-                ppty_name, len(missing_vertex), missing_vertex)
-            vid_dict = dict([(k, v) for k, v in vid_dict.iteritems() if
-                             k in self.vertices()])
-        # Update vertex property 'ppty_name' if the vid has no values yet:
-        id_duplicate = []
-        for k, v in vid_dict.iteritems():
-            if k not in self._vertex_property[ppty_name]:
-                self._vertex_property[ppty_name][k] = v
-            else:
-                id_duplicate.append(k)
-        # Print if exist some duplication in vertex ppty 'ppty_name':
-        if id_duplicate != []:
-            print "Found {} vids which already had a value for property '{}'.".format(
-                len(id_duplicate), ppty_name)
+            raise PropertyError(MISSING_PPTY.format(ppty_name, 'vertex'))
+
+        # - Check the input 'vid_dict', and that all keys are in the graph:
+        vid_dict = self._input_dict(ppty_name, vid_dict, 'vertex', False)
+        
+        # - Update vertex property 'ppty_name':
+        ppty_dict = self._vertex_property[ppty_name]
+        duplicated_ids = [k for k in vid_dict.keys() if k in ppty_dict.keys()]
+        new_ids = list(set(vid_dict.keys()) - set(duplicated_ids))
+        if new_ids:    
+            ppty_dict.update({k: vid_dict[k] for k in new_ids})
+            print "Extended vertex property '{}' with {} values!".format(ppty_name, len(new_ids))
+        else:
+            print "No new values found to extend vertex property '{}'!".format(ppty_name)
+        # - Print if exist some duplication in vertex ppty 'ppty_name':
+        if duplicated_ids:
+            print "Found {} vids (out of {}) with a defined value for property '{}'.".format(
+                len(duplicated_ids), len(vid_dict), ppty_name)
         return
 
     def remove_vertex_property(self, ppty_name):
@@ -359,22 +453,82 @@ class PropertyGraph(IPropertyGraph, Graph):
         -------
         Nothing, edit object
         """
+        # - Try to remove any existing associated graph property 'unit':
         try:
             del self._graph_property['units'][ppty_name]
         except KeyError:
             pass
+        # - Try to remove the vertex property, and if so, print about it:
         try:
             n = len(self.vertex_property(ppty_name))
-        except KeyError:
-            raise PropertyError("Property %s is undefined on vertices"
-                                % ppty_name)
-        else:
             del self._vertex_property[ppty_name]
-            print "Removed vertex property '{}' (n_vids={})".format(ppty_name,
-                                                                    n)
+        except KeyError:
+            raise PropertyError(MISSING_PPTY.format(ppty_name, 'vertex'))
+        else:
+            print "Removed vertex property '{}' (n={})".format(ppty_name, n)
+        return
+    # remove_vertex_property.__doc__ = IPropertyGraph.remove_vertex_property.__doc__
+
+    def update_vertex_property(self, ppty_name, values, add_missing=True):
+        """
+        Update an existing vertex property, with non-null values.
+        Can add missing property (instead of failing) if 'add_missing' is True.
+
+        Parameters
+        ----------
+        ppty_name: str
+            the name of the property to add
+        values: any non-null
+            any type of values or object, except null values like empty list,
+            set, dictionary or 'None'
+        add_missing: bool, optional
+            if True (default), add the property `ppty_name` if missing,
+            else may fail if not defined
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        # - Assert the property does exist:
+        if ppty_name not in self._vertex_property:
+            if add_missing:
+                self.add_vertex_property(ppty_name, values)
+            else:
+                raise PropertyError(MISSING_PPTY.format(ppty_name, 'vertex'))
+        # - Raise an error when no 'values' are given:
+        if not values:
+            raise PropertyError(NULL_VALUES.format('vertex', ppty_name))
+        # - Update the vertex property dictionary:
+        self._vertex_property[ppty_name].update(values)
         return
 
-    # remove_vertex_property.__doc__ = IPropertyGraph.remove_vertex_property.__doc__
+    def clear_vertex_property(self, ppty_name):
+        """
+        Clear any values associated with the vertex property 'ppty_name'.
+
+        Parameters
+        ----------
+        ppty_name : str
+            name of the vertex property to clear
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        # - Try to clear any existing associated graph property 'unit':
+        try:
+            self._graph_property['units'][ppty_name] = None
+        except KeyError:
+            pass
+        # - Try to clear the vertex property, and if so, print about it:
+        try:
+            n = len(self.vertex_property(ppty_name))
+            self._vertex_property[ppty_name] = {}
+        except KeyError:
+            raise PropertyError(MISSING_PPTY.format(ppty_name, 'vertex'))
+        else:
+            print "Cleared vertex property '{}' of n={} values!".format(ppty_name, n)
+        return
 
     def add_edge_property(self, ppty_name, eid_dict=None):
         """
@@ -392,30 +546,14 @@ class PropertyGraph(IPropertyGraph, Graph):
         -------
         Nothing, edit object
         """
-        # TODO: add 'value' param -> assign to all eids!
+        # - Assert the property does NOT exist:
         if ppty_name in self._edge_property:
-            raise PropertyError("Property %s is already defined on edges"
-                                % ppty_name)
-        # Check the input parameter 'eid_dict'
-        if eid_dict is None:
-            print "Creating EMPTY edge property '{}'".format(ppty_name)
-            eid_dict = {}
-        try:
-            assert isinstance(eid_dict, dict)
-        except AssertionError:
-            raise TypeError(
-                "Parameter 'eid_dict' must be a dictionary {eid: value}")
-        # Check all 'eid_dict' keys are in the graph:
-        missing_edge = list(set(eid_dict.keys()) - set(self.edges()))
-        if missing_edge != []:
-            print "The eid-dictionary '{}' contains {} unknown edges:\n{}".format(
-                ppty_name, len(missing_edge), missing_edge)
-            eid_dict = dict(
-                [(k, v) for k, v in eid_dict.iteritems() if k in self.edges()])
-        # Finally add the edge property to the graph:
+            raise PropertyError(EXISTING_PPTY.format(ppty_name, 'edge'))
+        # - Check the input 'eid_dict', and that all keys are in the graph:
+        eid_dict = self._input_dict(ppty_name, eid_dict, 'edge', True)
+        # - Finally add the edge property to the graph:
         self._edge_property[ppty_name] = eid_dict
         return
-
     # add_edge_property.__doc__ = IPropertyGraph.add_edge_property.__doc__
 
     def extend_edge_property(self, ppty_name, eid_dict):
@@ -425,7 +563,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         Parameters
         ----------
         ppty_name : str
-            a string mathing an exiting property
+            a string matching an exiting property
         eid_dict : dict
             a dictionary {eid: eid_values}
 
@@ -438,37 +576,29 @@ class PropertyGraph(IPropertyGraph, Graph):
         * 'ppty_name' should exist
         * 'eid_dict' cannot be an empty dictionary
         """
-        # Check the input parameter 'vid_dict'
-        if not isinstance(eid_dict, dict):
-            raise TypeError(
-                "Parameter 'eid_dict' %s is not a type 'dict'" % eid_dict)
-        else:
-            try:
-                assert eid_dict != {}
-            except AssertionError:
-                raise ValueError("Parameter 'eid_dict' is an EMPTY 'dict'")
+        # - Assert the property does exist:
         if ppty_name not in self._edge_property:
-            print "Creating vertex property %s" % ppty_name
-            self._edge_property[ppty_name] = {}
+            raise PropertyError(MISSING_PPTY.format(ppty_name, 'edge'))
 
-        # Check all 'eid_dict' keys are in the graph:
-        missing_edge = list(set(eid_dict.keys()) - set(self.edges()))
-        if missing_edge != []:
-            print "The eid-dictionary '{}' contains {} unknown edges:\n{}".format(
-                ppty_name, len(missing_edge), missing_edge)
-            eid_dict = dict(
-                [(k, v) for k, v in eid_dict.iteritems() if k in self.edges()])
+        # - Check the input 'eid_dict', and that all keys are in the graph:
+        eid_dict = self._input_dict(ppty_name, eid_dict, 'edge', False)
 
-        id_duplicate = []
-        for k, v in eid_dict.iteritems():
-            if k not in self._edge_property[ppty_name]:
-                self._edge_property[ppty_name][k] = v
-            else:
-                id_duplicate.append(k)
+        # - Update edge property 'ppty_name':
+        ppty_dict = self._edge_property[ppty_name]
+        duplicated_ids = [k for k in eid_dict.keys() if k in ppty_dict.keys()]
+        new_ids = list(set(eid_dict.keys()) - set(duplicated_ids))
+        if new_ids:
+            ppty_dict.update({k: eid_dict[k] for k in new_ids})
+            print "Extended edge property '{}' with {} values!".format(
+                ppty_name, len(new_ids))
+        else:
+            print "No new values found to extend edge property '{}'!".format(
+                ppty_name)
+        # - Print if exist some duplication in edge ppty 'ppty_name':
+        if duplicated_ids:
+            print "Found {} eids (out of {}) with a defined value for property '{}'.".format(
+                len(duplicated_ids), len(eid_dict), ppty_name)
 
-        if id_duplicate != []:
-            print "Found {} edges which already had a value for property '{}'.".format(
-                len(id_duplicate), ppty_name)
         return
 
     def remove_edge_property(self, ppty_name):
@@ -484,21 +614,82 @@ class PropertyGraph(IPropertyGraph, Graph):
         -------
         Nothing, edit object
         """
+        # - Try to remove any existing associated graph property 'unit':
         try:
             del self._graph_property['units'][ppty_name]
         except KeyError:
             pass
+        # - Try to remove the edge property, and if so, print about it:
         try:
             n = len(self.edge_property(ppty_name))
-        except KeyError:
-            raise PropertyError("Property %s is undefined on edges"
-                                % ppty_name)
-        else:
             del self._edge_property[ppty_name]
-            print "Removed edge property '{}' (n_eids={})".format(ppty_name, n)
+        except KeyError:
+            raise PropertyError(MISSING_PPTY.format(ppty_name, 'edge'))
+        else:
+            print "Removed edge property '{}' (n={})".format(ppty_name, n)
+        return
+    # remove_edge_property.__doc__ = IPropertyGraph.remove_edge_property.__doc__
+
+    def update_edge_property(self, ppty_name, values, add_missing=True):
+        """
+        Update an existing edge property, with non-null values.
+        Can add missing property (instead of failing) if 'add_missing' is True.
+
+        Parameters
+        ----------
+        ppty_name: str
+            the name of the property to add
+        values: any non-null
+            any type of values or object, except null values like empty list,
+            set, dictionary or 'None'
+        add_missing: bool, optional
+            if True (default), add the property `ppty_name` if missing,
+            else may fail if not defined
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        # - Assert the property does exist:
+        if ppty_name not in self._edge_property:
+            if add_missing:
+                self.add_edge_property(ppty_name, values)
+            else:
+                raise PropertyError(MISSING_PPTY.format(ppty_name, 'edge'))
+        # - Raise an error when no 'values' are given:
+        if not values:
+            raise PropertyError(NULL_VALUES.format('edge', ppty_name))
+        # - Update the edge property dictionary:
+        self._edge_property[ppty_name].update(values)
         return
 
-    # remove_edge_property.__doc__ = IPropertyGraph.remove_edge_property.__doc__
+    def clear_edge_property(self, ppty_name):
+        """
+        Clear any values associated with the edge property 'ppty_name'.
+
+        Parameters
+        ----------
+        ppty_name : str
+            name of the edge property to clear
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        # - Try to clear any existing associated graph property 'unit':
+        try:
+            self._graph_property['units'][ppty_name] = None
+        except KeyError:
+            pass
+        # - Try to clear the edge property, and if so, print about it:
+        try:
+            n = len(self.edge_property(ppty_name))
+            self._edge_property[ppty_name] = {}
+        except KeyError:
+            raise PropertyError(MISSING_PPTY.format(ppty_name, 'edge'))
+        else:
+            print "Cleared edge property '{}' of n={} values!".format(ppty_name, n)
+        return
 
     def add_graph_property(self, ppty_name, values=None):
         """
@@ -515,22 +706,25 @@ class PropertyGraph(IPropertyGraph, Graph):
         -------
         Nothing, edit object
         """
+        # - Assert the property does NOT exist:
         if ppty_name in self._graph_property:
-            raise PropertyError("Property %s is already defined on graph"
-                                % ppty_name)
+            raise PropertyError(EXISTING_PPTY.format(ppty_name, 'graph'))
+        # - Print when no 'values' are given:
         if values is None:
-            print "Creating EMPTY graph property '{}'".format(ppty_name)
+            print EMPTY_PPTY.format('graph', ppty_name)
+        # - Add the graph property:
         self._graph_property[ppty_name] = values
         return
 
     def extend_graph_property(self, ppty_name, values):
         """
-        Extend an existing graph property 'ppty_name' with 'values'.
+        Extend an existing graph property 'ppty_name' with 'values', the defined
+        values should be an iterable type like 'list', 'set' or 'dict'.
 
         Parameters
         ----------
         ppty_name : str
-            a string mathing an exiting property
+            a string matching an exiting property
         values : Any
             any type or object
 
@@ -543,32 +737,34 @@ class PropertyGraph(IPropertyGraph, Graph):
         * 'ppty_name' should exist
         * 'values' cannot be an empty dictionary
         """
+        # - Assert the property does exist:
         if ppty_name not in self._graph_property:
-            raise PropertyError("Property %s is not defined on graph"
-                                % ppty_name)
+            raise PropertyError(EXISTING_PPTY.format(ppty_name, 'graph'))
+        # - Raise an error when no 'values' are given:
+        if values is None:
+            raise PropertyError("Trying to extend graph property '{}' with None value!".format(ppty_name))
 
-        try:
-            assert values is not None
-        except AssertionError:
-            raise AssertionError("Values is EMPTY (None)")
         if isinstance(self.graph_property(ppty_name), list):
-            try:
-                assert values != []
-            except AssertionError:
-                raise AssertionError("Values is an EMPTY 'list'")
-            self._graph_property[ppty_name].extend(values)
+            if values:
+                self._graph_property[ppty_name].extend(values)
+            else:
+                raise PropertyError(EMPTY_EXTEND.format('graph', ppty_name, 'list'))
+        elif isinstance(self.graph_property(ppty_name), set):
+            if values:
+                self._graph_property[ppty_name].update(values)
+            else:
+                raise PropertyError(EMPTY_EXTEND.format('graph', ppty_name, 'set'))
         elif isinstance(self.graph_property(ppty_name), dict):
             try:
                 assert values != {}
             except AssertionError:
-                raise AssertionError("Values is an EMPTY 'dict'")
+                raise PropertyError(EMPTY_EXTEND.format('graph', ppty_name, 'dict'))
             else:
-                ppty = dict([(k, v) for k, v in values.iteritems() if
-                             k not in self.graph_property(ppty_name).keys()])
+                ppty_dict = self.graph_property(ppty_name)
+                ppty = {k: v for k, v in values.items() if k not in ppty_dict}
                 self._graph_property[ppty_name].update(ppty)
         else:
-            print "Unable to extend 'graph_property' (type:{}) with this type of data: {}".format(
-                type(self._graph_property[ppty_name]), type(values))
+            raise TypeError("Unable to extend graph property '{}' (type:{}) with this type of values: {}".format(ppty_name, type(self._graph_property[ppty_name]), type(values)))
         return
 
     def remove_graph_property(self, ppty_name):
@@ -584,16 +780,98 @@ class PropertyGraph(IPropertyGraph, Graph):
         -------
         Nothing, edit object
         """
+        # - Try to remove any existing associated graph property 'unit':
         try:
             del self._graph_property['units'][ppty_name]
         except KeyError:
             pass
+        # - Try to remove the graph property, and if so, print about it:
         try:
+            n = len(self.graph_property(ppty_name))
             del self._graph_property[ppty_name]
-            print "Removed graph property '{}'".format(ppty_name)
         except KeyError:
-            raise PropertyError("Property %s is undefined on graph"
-                                % ppty_name)
+            raise PropertyError(MISSING_PPTY.format(ppty_name, 'graph'))
+        else:
+            print "Removed graph property '{}' (n={})".format(ppty_name, n)
+        return
+
+    def update_graph_property(self, ppty_name, values, add_missing=True):
+        """
+        Update an existing graph property, with non-null values.
+        Can add missing property (instead of failing) if 'add_missing' is True.
+
+        Parameters
+        ----------
+        ppty_name: str
+            the name of the property to add
+        values: any non-null
+            any type of values or object, except null values like empty list,
+            set, dictionary or 'None'
+        add_missing: bool, optional
+            if True (default), add the property `ppty_name` if missing,
+            else may fail if not defined
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        # - Assert the property does exist:
+        if ppty_name not in self._graph_property:
+            if add_missing:
+                self.add_graph_property(ppty_name, values)
+            else:
+                raise PropertyError(MISSING_PPTY.format(ppty_name, 'graph'))
+        # - Raise an error when no 'values' are given:
+        if not values:
+            raise PropertyError(NULL_VALUES.format('graph', ppty_name))
+        # - Update the graph property:
+        ppty = self._graph_property[ppty_name]
+        if isinstance(ppty, dict) or isinstance(ppty, set):
+            self._graph_property[ppty_name].update(values)
+        else:
+            try:
+                n_old = len(ppty)
+                assert not isinstance(ppty, str)
+            except:
+                n_old = 1
+            try:
+                n_new = len(values)
+                assert not isinstance(values, str)
+            except:
+                n_new = 1
+            s = "Replaced the graph property '{}' ".format(ppty_name)
+            s += "(n={}) ".format(n_old) if n_old > 1 else "('{}') ".format(ppty)
+            s += "by {} values.".format(n_new) if n_new > 1 else "by '{}'.".format(ppty)
+            print s
+            self._graph_property[ppty_name] = values
+        return
+
+    def clear_graph_property(self, ppty_name):
+        """
+        Clear any values associated with the graph property 'ppty_name'.
+
+        Parameters
+        ----------
+        ppty_name : str
+            name of the graph property to clear
+
+        Returns
+        -------
+        Nothing, edit object
+        """
+        # - Try to clear any existing associated graph property 'unit':
+        try:
+            self._graph_property['units'][ppty_name] = None
+        except KeyError:
+            pass
+        # - Try to clear the graph property, and if so, print about it:
+        try:
+            n = len(self.graph_property(ppty_name))
+            self._graph_property[ppty_name] = {}
+        except KeyError:
+            raise PropertyError(MISSING_PPTY.format(ppty_name, 'graph'))
+        else:
+            print "Cleared graph property '{}' of n={} values!".format(ppty_name, n)
         return
 
     def remove_vertex(self, vid):
@@ -616,7 +894,6 @@ class PropertyGraph(IPropertyGraph, Graph):
         for prop in self._vertex_property.itervalues():
             prop.pop(vid, None)
         return
-
     # remove_vertex.__doc__ = Graph.remove_vertex.__doc__
 
     def remove_edge(self, eid):
@@ -639,7 +916,6 @@ class PropertyGraph(IPropertyGraph, Graph):
         for e_ppty in self._edge_property.itervalues():
             e_ppty.pop(eid, None)
         return
-
     # remove_edge.__doc__ = Graph.remove_edge.__doc__
 
     def clear(self):
@@ -664,7 +940,6 @@ class PropertyGraph(IPropertyGraph, Graph):
         for ppty in graph_ppty:
             self.remove_graph_property(ppty)
         return
-
     # clear.__doc__ = Graph.clear.__doc__
 
     def clear_edges(self):
@@ -679,7 +954,6 @@ class PropertyGraph(IPropertyGraph, Graph):
         for prop in self._edge_property.itervalues():
             prop.clear()
         return
-
     # clear_edges.__doc__ = Graph.clear_edges.__doc__
 
     @staticmethod
@@ -1302,6 +1576,7 @@ class PropertyGraph(IPropertyGraph, Graph):
         Based on the original work of V.Mirabet.
         """
         # TODO: move to TissueGraph? class.
+        # TODO: use Pandas library?
         # Init the CSV header with ['graph_name'; 'vid';]:
         csv_head = "graph_name" + ";" + "vid" + ";"
         # Get the possible ppty to export crossing required 'ppty_sublist' & 
