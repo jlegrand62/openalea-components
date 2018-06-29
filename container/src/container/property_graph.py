@@ -128,10 +128,11 @@ class PropertyGraph(IPropertyGraph, Graph):
         s += "  - {} graph properties\n".format(len(self._graph_property))
         return s
 
-    ############################################################################
+    # ##########################################################################
+    #
     # Overridden methods of Graph object:
-    ############################################################################
-
+    #
+    # ##########################################################################
     def remove_vertex(self, vid):
         """
         Remove vertex if 'vid' from the object.
@@ -214,10 +215,11 @@ class PropertyGraph(IPropertyGraph, Graph):
         return
     # clear_edges.__doc__ = Graph.clear_edges.__doc__
 
-    ############################################################################
+    # ##########################################################################
+    #
     # VERTEX associated properties:
-    ############################################################################
-
+    #
+    # ##########################################################################
     def vertex_property_names(self):
         """
         Return a key-iterator of vertex property names in the object.
@@ -276,10 +278,11 @@ class PropertyGraph(IPropertyGraph, Graph):
             return ppty
     # vertex_property.__doc__=IPropertyGraph.vertex_property.__doc__
 
-    ############################################################################
+    # ##########################################################################
+    #
     # EDGE associated properties:
-    ############################################################################
-
+    #
+    # ##########################################################################
     def edge_property_names(self):
         """
         Return a key-iterator of edges property names in the object.
@@ -338,10 +341,11 @@ class PropertyGraph(IPropertyGraph, Graph):
             return ppty
     # edge_property.__doc__ = IPropertyGraph.edge_property.__doc__
 
-    ############################################################################
+    # ##########################################################################
+    #
     # GRAPH associated properties:
-    ############################################################################
-
+    #
+    # ##########################################################################
     def graph_property_names(self):
         """
         Return a key-iterator of graph property names in the object.
@@ -383,9 +387,11 @@ class PropertyGraph(IPropertyGraph, Graph):
             raise PropertyError(MISSING_PPTY.format(ppty_name, 'graph'))
     # graph_property.__doc__ = IPropertyGraph.graph_property.__doc__
 
-    ############################################################################
+    # ##########################################################################
+    #
     # Hidden functions:
-    ############################################################################
+    #
+    # ##########################################################################
 
     def _ids_type(self, ids_type):
         """
@@ -513,9 +519,11 @@ class PropertyGraph(IPropertyGraph, Graph):
 
         return ppty_dict
 
-    ############################################################################
+    # ##########################################################################
+    #
     # VERTEX property creation and edition functions :
-    ############################################################################
+    #
+    # ##########################################################################
 
     def add_vertex_property(self, ppty_name, vid_dict=None):
         """
@@ -667,10 +675,11 @@ class PropertyGraph(IPropertyGraph, Graph):
             print "Cleared vertex property '{}' of n={} values!".format(ppty_name, n)
         return
 
-    ############################################################################
+    # ##########################################################################
+    #
     # EDGE property creation and edition functions :
-    ############################################################################
-
+    #
+    # ##########################################################################
     def add_edge_property(self, ppty_name, eid_dict=None):
         """
         Add a new edge property, with eid_dict if it is an eid dictionary, or leaves
@@ -820,10 +829,11 @@ class PropertyGraph(IPropertyGraph, Graph):
             print "Cleared edge property '{}' of n={} values!".format(ppty_name, n)
         return
 
-    ############################################################################
+    # ##########################################################################
+    #
     # GRAPH property creation and edition functions :
-    ############################################################################
-
+    #
+    # ##########################################################################
     def add_graph_property(self, ppty_name, values=None):
         """
         Add a new graph property, empty if values is None else add it to the object.
@@ -1007,10 +1017,11 @@ class PropertyGraph(IPropertyGraph, Graph):
             print "Cleared graph property '{}' of n={} values!".format(ppty_name, n)
         return
 
-    ############################################################################
+    # ##########################################################################
+    #
     # GRAPH extension and relabelling functions :
-    ############################################################################
-
+    #
+    # ##########################################################################
     @staticmethod
     def _translate_property(dict_values, trans_vid, trans_eid,
                             key_translation, value_translation):
@@ -1451,9 +1462,11 @@ class PropertyGraph(IPropertyGraph, Graph):
         # - If neither an EdgeIdType nor a VertexIdType, return ValueType
         return ValueType
 
-    ############################################################################
+    # ##########################################################################
+    #
     # EXPORT/IMPORT with NetworkX library
-    ############################################################################
+    #
+    # ##########################################################################
 
     def to_networkx(self):
         """
@@ -1534,9 +1547,11 @@ class PropertyGraph(IPropertyGraph, Graph):
 
         return g
 
-    ############################################################################
+    # ##########################################################################
+    #
     # EXPORT graph as a CSV
-    ############################################################################
+    #
+    # ##########################################################################
     # TODO: rewrite using Pandas library?
     def to_csv(self, graph_name, ppty2export=None, out_fname=None,
                datetime2fname=True):
@@ -1637,9 +1652,9 @@ class PropertyGraph(IPropertyGraph, Graph):
         print "Done witting '{}' file!".format(out_fname + ".csv")
         return
 
-    ############################################################################
+    # ##########################################################################
     # Misc: Should probably be elsewhere !
-    ############################################################################
+    # ##########################################################################
 
     @staticmethod
     def _to_set(s):
